@@ -1,0 +1,14 @@
+# recommened procedure to set up the environment for this project: 
+
+# 1. conda create -n KidAlignEnv python=3.10
+# 2. conda activate KidAlignEnv
+# 3. uv pip install vllm --torch-backend=auto
+# 4. uv pip install -r requirements.txt
+# vllm
+
+vllm
+pandas
+openpyxl
+json_repair
+beautifulsoup4
+lxml
