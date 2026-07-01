@@ -144,7 +144,7 @@ class VllmServer:
         cuda_device: str,
         port: int = 8000,
         host: str = "127.0.0.1",
-        timeout: int = 120,
+        timeout: int = 300,
         log_file: str | None = None,
     ):
         self.model = model

@@ -1,6 +1,11 @@
 import yaml
 import json
 
+def load_yaml_prompt(prompt_path):
+    """Load a YAML prompt template from the specified path."""
+    with open(prompt_path, "r") as f:
+        return yaml.safe_load(f)
+
 def load_yaml_prompts(prompt_types, prompt_folder):
     prompts = {}
     for name in prompt_types:
