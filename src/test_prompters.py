@@ -30,7 +30,7 @@ import pandas as pd
 
 # Local imports
 from utils.file_io import load_yaml_prompt
-from utils.prompters import OpenAIPrompter, VLLMPrompter, BasePrompter, ChatPrompt
+from utils.prompters import OpenAIPrompter, VLLMPrompter, BasePrompter
 from utils.schemas import FreeResponse
 
 
@@ -138,6 +138,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+
 def load_standards(
     standards_path: str,
     sample_size: int,
@@ -148,9 +149,6 @@ def load_standards(
     """
 
     df_standards = pd.read_csv(standards_path, sep="\t")
-    # Filter to only include grades 6-12 and specific modules
-    df_standards = df_standards[df_standards["grade_span"].isin(["9-12", "6-8"])]
-    df_standards = df_standards[df_standards["module_code"].isin(["SH"])]
     print(f"Loaded {len(df_standards)} HECAT standards from {standards_path}.")
 
     if sample_size == -1:
@@ -364,13 +362,13 @@ def main() -> None:
         prompter=prompter,
     )
 
-    # data = generate_dataset_component(
-    #     data=data,
-    #     prompt_template=gen_a_template,
-    #     prompt_type="a",
-    #     output_key="appropriate_answer",
-    #     prompter=prompter,
-    # )
+    data = generate_dataset_component(
+        data=data,
+        prompt_template=gen_a_template,
+        prompt_type="a",
+        output_key="appropriate_answer",
+        prompter=prompter,
+    )
 
     output_path = make_output_path(
         output_dir=args.output_dir,

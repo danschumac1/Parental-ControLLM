@@ -10,5 +10,4 @@ vllm
 pandas
 openpyxl
 json_repair
-beautifulsoup4
-lxml
+python-dotenv

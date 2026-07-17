@@ -10,7 +10,9 @@ from openai import OpenAI
 from pydantic import BaseModel
 from json_repair import repair_json
 import requests 
+from dotenv import load_dotenv
 
+load_dotenv("./resources/.env")
 
 @dataclass
 class ChatPrompt:
@@ -59,6 +61,8 @@ class VLLMPrompter:
         Fire requests back-to-back.
         vLLM will batch internally.
         """
+        print("VLLM client model:", self.model)
+        print("VLLM base_url:", self.client.base_url)
         responses = [
             self.client.chat.completions.create(
                 model=self.model,
@@ -183,6 +187,7 @@ class VllmServer:
         cmd = [
             "python", "-m", "vllm.entrypoints.openai.api_server",
             "--model", self.model,
+            "--served-model-name", self.model,
             "--host", self.host,
             "--port", str(self.port),
         ]
@@ -206,14 +211,35 @@ class VllmServer:
         url = f"http://{self.host}:{self.port}/v1/models"
 
         while time.time() - start < self.timeout:
+            # If the subprocess died, fail immediately and point to the log.
+            if self.proc is not None and self.proc.poll() is not None:
+                raise RuntimeError(
+                    f"vLLM server process exited early with code {self.proc.returncode}. "
+                    f"Check log file: {self.log_file}"
+                )
+
             try:
-                requests.get(url, timeout=2)
-                return
+                response = requests.get(url, timeout=2)
+
+                if response.status_code == 200:
+                    payload = response.json()
+                    models = payload.get("data", [])
+                    served_model_ids = [m.get("id") for m in models]
+
+                    print(f"vLLM currently serves: {served_model_ids}")
+
+                    if self.model in served_model_ids:
+                        return
+
             except Exception:
-                time.sleep(1)
+                pass
 
-        raise RuntimeError("vLLM server did not become ready")
+            time.sleep(1)
 
+        raise RuntimeError(
+            f"vLLM server did not become ready with model {self.model}. "
+            f"Check log file: {self.log_file}"
+        )
     def _stop_server(self):
         if self.proc is None:
             return
@@ -226,3 +252,80 @@ class VllmServer:
         finally:
             if self._log_handle:
                 self._log_handle.close()
+
+class OpenAIPrompter:
+    """
+    Simple schema-aware prompter for real OpenAI API models.
+    Uses OPENAI_API_KEY from environment / .env.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        temperature: float = 0.0,
+        max_tokens: int = 512,
+    ):
+        self.client = OpenAI()
+        self.model = model
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+    def generate(
+        self,
+        prompts: list[list[dict]],
+    ) -> list[str]:
+        responses = [
+            self.client.chat.completions.create(
+                model=self.model,
+                messages=p,
+                temperature=self.temperature,
+                # max_completion_tokens=self.max_tokens,
+            )
+            for p in prompts
+        ]
+
+        return [
+            r.choices[0].message.content.strip()
+            for r in responses
+        ]
+
+    def _parse_json_safely(self, text: str) -> dict:
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        try:
+            repaired = repair_json(text)
+            return json.loads(repaired)
+        except Exception as e:
+            raise ValueError(
+                "JSON repair failed.\n"
+                f"Original output:\n{text}\n"
+            ) from e
+
+    def generate_structured(
+        self,
+        prompts: list[list[dict]],
+        schema: Type[BaseModel],
+    ) -> list[Any]:
+        raw_outputs = self.generate(prompts)
+        parsed: List[Any] = []
+
+        for out in raw_outputs:
+            try:
+                data = self._parse_json_safely(out)
+
+                if not isinstance(data, dict):
+                    raise TypeError(
+                        f"Expected JSON object, got {type(data)}"
+                    )
+
+                parsed.append(schema(**data))
+
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to parse output as {schema.__name__}:\n{out}"
+                ) from e
+
+        return parsed
