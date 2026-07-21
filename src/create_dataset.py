@@ -12,7 +12,7 @@ Example usage:
         --max_tokens 512
 
     # vLLM offline inference
-    VLLM_LOGGING_LEVEL=WARNING CUDA_VISIBLE_DEVICES=0 python src/create_dataset.py \
+    VLLM_LOGGING_LEVEL=WARNING CUDA_VISIBLE_DEVICES=1 python src/create_dataset.py \
         --backend vllm \
         --model Qwen/Qwen2.5-7B-Instruct \
         --sample_size 30 \
@@ -150,7 +150,12 @@ def load_standards(
     df_standards = pd.read_csv(standards_path, sep="\t")
     # Filter to only include grades 6-12 and specific modules
     df_standards = df_standards[df_standards["grade_span"].isin(["9-12", "6-8"])]
-    df_standards = df_standards[df_standards["module_code"].isin(["SH"])]
+
+
+    # TODO: Remove this filter if you want to include all modules
+    df_standards = df_standards[df_standards["module_code"].isin(["AOD"])] 
+
+
     print(f"Loaded {len(df_standards)} HECAT standards from {standards_path}.")
 
     if sample_size == -1:
