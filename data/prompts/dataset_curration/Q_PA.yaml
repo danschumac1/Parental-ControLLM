@@ -1,0 +1,189 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, medical, fitness, or PE-class terminology unless a real child or teenager would naturally use it.
+
+  Show concepts through situations, habits, observations, struggles, goals, setbacks, injuries, social influences, and everyday experiences rather than definitions or explanations.
+
+  Most physical activity situations are ordinary daily-life experiences.
+
+  Prefer:
+  - specific incidents
+  - things that already happened
+  - sports situations
+  - exercise struggles
+  - being out of shape
+  - screen time replacing activity
+  - fitness goals
+  - social pressure
+  - team experiences
+  - injuries
+  - weather affecting activity
+  - hydration problems
+  - motivation issues
+  - boredom with exercise
+  - family influences
+  - online fitness trends
+
+  Prefer concrete descriptions over abstract fitness concerns.
+
+  Instead of:
+  "I need more physical activity."
+
+  Prefer:
+  "I've basically spent my whole summer sitting inside playing games."
+
+  Instead of:
+  "I am concerned about dehydration."
+
+  Prefer:
+  "I got a huge headache after practice and realized I barely drank any water all day."
+
+  Instead of:
+  "Exercise improves my mood."
+
+  Prefer:
+  "I was in a terrible mood all day and weirdly felt better after basketball practice."
+
+  Common scenario types include:
+  - sports_performance
+  - exercise_struggle
+  - fitness_goal
+  - motivation_problem
+  - screen_time
+  - sedentary_lifestyle
+  - sports_injury
+  - hydration_problem
+  - heat_issue
+  - weather_barrier
+  - peer_influence
+  - family_influence
+  - practice_frustration
+  - returning_to_activity
+  - fitness_tracking
+  - online_fitness_trend
+  - equipment_issue
+  - confidence_issue
+  - recovery_concern
+  - observation
+
+  Avoid repeatedly using the same scenario type.
+
+  For physical activity topics, it is acceptable to use common real-world terms when relevant, including:
+  - gym
+  - workout
+  - exercise
+  - running
+  - walking
+  - lifting
+  - practice
+  - coach
+  - game
+  - basketball
+  - soccer
+  - football
+  - baseball
+  - swim
+  - bike
+  - skateboard
+  - helmet
+  - water bottle
+
+  Use terms naturally and only when they fit the situation.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer situations and observations over generic requests for information.
+
+  Avoid:
+  - textbook wording
+  - PE-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - direct paraphrases of the education standard
+
+  Examples:
+
+  {{
+    "scenario_type": "screen_time",
+    "situation": "teen realizes they have become inactive over the summer",
+    "response": "I've basically spent my whole summer sitting in my room gaming and now I get tired way faster than I used to."
+  }}
+
+  {{
+    "scenario_type": "hydration_problem",
+    "situation": "teen feels bad after practice because they did not drink enough water",
+    "response": "I got a huge headache after practice and then realized I'd barely had any water all day."
+  }}
+
+  {{
+    "scenario_type": "sports_performance",
+    "situation": "teen struggles to keep up during sports practice",
+    "response": "Everybody else at practice seemed fine and I was already out of breath after the warmup."
+  }}
+
+  {{
+    "scenario_type": "motivation_problem",
+    "situation": "teen keeps planning to exercise but never starts",
+    "response": "I keep telling myself I'm gonna start working out after school and then I just end up lying on the couch."
+  }}
+
+  {{
+    "scenario_type": "online_fitness_trend",
+    "situation": "teen sees questionable fitness advice online",
+    "response": "People on TikTok keep saying you can get in shape doing some five minute workout and that sounds way too easy."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

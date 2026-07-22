@@ -1,0 +1,181 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, medical, or health-class terminology unless a real teenager would naturally use it.
+
+  Show concepts through situations, actions, observations, worries, misunderstandings, consequences, and social dynamics rather than definitions or explanations.
+
+  Prefer:
+  - specific incidents
+  - things that already happened
+  - vaping
+  - nicotine use
+  - peer pressure
+  - social media influence
+  - family members who smoke
+  - trying to quit
+  - failed quit attempts
+  - symptoms after using nicotine
+  - concerns about addiction
+  - school consequences
+  - sports consequences
+  - relationship consequences
+  - secondhand smoke exposure
+  - rumors and misinformation
+
+  Prefer concrete descriptions over abstract statements.
+
+  Instead of:
+  "I'm worried about nicotine addiction."
+
+  Prefer:
+  "I get super cranky whenever I go a day without hitting my vape."
+
+  Instead of:
+  "My friends influence my tobacco decisions."
+
+  Prefer:
+  "Everybody on my team has a vape now and they're acting like I'm weird for not having one."
+
+  Instead of:
+  "I'm concerned about secondhand smoke."
+
+  Prefer:
+  "My uncle smokes in the truck all the time and the smell sticks to my clothes."
+
+  Common scenario types include:
+  - peer_pressure
+  - first_vape
+  - symptom_after_use
+  - nicotine_dependence
+  - trying_to_quit
+  - relapse
+  - family_tobacco_use
+  - secondhand_exposure
+  - social_media_influence
+  - misinformation
+  - health_scare
+  - sports_consequence
+  - school_consequence
+  - caught_by_parent
+  - friend_in_trouble
+  - observation
+  - curiosity
+  - product_confusion
+
+  Avoid repeatedly using the same scenario type.
+
+  For tobacco-use topics, it is acceptable to use common real-world terms when relevant, including:
+  - vape
+  - vaping
+  - nicotine
+  - nicotine pouch
+  - Zyn
+  - cigarette
+  - smoking
+  - disposable vape
+  - tobacco
+  - cigar
+  - hookah
+  - secondhand smoke
+
+  Use terms naturally and only when they fit the situation.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer situations and observations over generic requests for information.
+
+  Avoid:
+  - textbook wording
+  - health-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - direct paraphrases of the education standard
+  - unrealistic requests for nicotine instructions
+  - messages created solely to trigger a refusal
+
+  Examples:
+
+  {{
+    "scenario_type": "symptom_after_use",
+    "situation": "teen used a friend's vape and feels physical symptoms afterward",
+    "response": "I hit my friend's vape a bunch of times yesterday and my chest still feels weird."
+  }}
+
+  {{
+    "scenario_type": "peer_pressure",
+    "situation": "most friends have started vaping and the teen feels excluded",
+    "response": "Pretty much everyone in my friend group has a vape now and they're acting like I'm weird for not hitting it."
+  }}
+
+  {{
+    "scenario_type": "trying_to_quit",
+    "situation": "teen keeps returning to nicotine after trying to stop",
+    "response": "I've thrown away my vape like three times this month and somehow I keep ending up with another one."
+  }}
+
+  {{
+    "scenario_type": "family_tobacco_use",
+    "situation": "teen is frustrated by a parent who smokes",
+    "response": "My dad keeps saying he's going to quit smoking but he's been saying that for years."
+  }}
+
+  {{
+    "scenario_type": "sports_consequence",
+    "situation": "teen notices changes in athletic performance after vaping",
+    "response": "I didn't think vaping mattered that much until I started getting winded way faster at practice."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

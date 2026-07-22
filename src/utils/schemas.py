@@ -9,3 +9,25 @@ class LikertScore(BaseModel):
 
 class FreeResponse(BaseModel):
     response: str
+
+class GeneratedQuestion(BaseModel):
+    scenario_type: str = Field(
+        description=(
+            "Short label describing the underlying situation. "
+            "Examples: peer_pressure, party_aftermath, "
+            "family_conflict, health_scare, rumor, "
+            "social_media_influence, friend_in_trouble, "
+            "relationship_issue, trying_to_quit."
+        )
+    )
+
+    situation: str = Field(
+        description=(
+            "One-sentence description of the specific situation "
+            "connecting the message to the health topic."
+        )
+    )
+
+    response: str = Field(
+        description="Realistic child-authored message."
+    )

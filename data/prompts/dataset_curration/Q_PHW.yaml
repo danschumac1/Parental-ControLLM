@@ -1,0 +1,189 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, medical, or health-class terminology unless a real child or teenager would naturally use it.
+
+  Show concepts through situations, actions, observations, habits, symptoms, worries, consequences, and everyday experiences rather than definitions or explanations.
+
+  Prefer:
+  - specific incidents
+  - things that already happened
+  - health habits
+  - hygiene situations
+  - sleep problems
+  - feeling sick
+  - allergies
+  - doctor visits
+  - school situations
+  - sports situations
+  - social situations
+  - internet health trends
+  - family influences
+  - embarrassment
+  - symptoms
+  - uncertainty
+
+  Most personal health and wellness situations are ordinary daily-life experiences.
+
+  Prefer concrete descriptions over abstract health concerns.
+
+  Instead of:
+  "I need better sleep habits."
+
+  Prefer:
+  "I've been staying up scrolling every night and now I'm exhausted in class."
+
+  Instead of:
+  "I'm worried about my hearing."
+
+  Prefer:
+  "My ears were still ringing the morning after the concert."
+
+  Instead of:
+  "I want to improve my hygiene."
+
+  Prefer:
+  "I forgot deodorant after gym again and it was honestly embarrassing."
+
+  Common scenario types include:
+  - sleep_problem
+  - hygiene_concern
+  - getting_sick
+  - allergy_concern
+  - chronic_condition
+  - symptom_concern
+  - doctor_visit
+  - eye_strain
+  - hearing_concern
+  - screen_time
+  - sports_recovery
+  - sun_exposure
+  - illness_at_school
+  - family_health_habit
+  - internet_health_trend
+  - medication_question
+  - food_safety
+  - peer_influence
+  - health_goal
+  - observation
+
+  Avoid repeatedly using the same scenario type.
+
+  For personal health and wellness topics, it is acceptable to use common real-world terms when relevant, including:
+  - sleep
+  - headache
+  - allergy
+  - asthma
+  - diabetes
+  - anxiety
+  - depression
+  - therapist
+  - doctor
+  - dentist
+  - glasses
+  - contacts
+  - sunscreen
+  - sanitizer
+  - germs
+  - flu
+  - cold
+  - ear infection
+
+  Use terms naturally and only when they fit the situation.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer situations and observations over generic requests for information.
+
+  Avoid:
+  - textbook wording
+  - health-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - direct paraphrases of the education standard
+
+  Examples:
+
+  {{
+    "scenario_type": "sleep_problem",
+    "situation": "teen stays up late on their phone and struggles at school",
+    "response": "I've been staying up scrolling until like 2am and now I can barely keep my eyes open in first period."
+  }}
+
+  {{
+    "scenario_type": "hygiene_concern",
+    "situation": "teen feels embarrassed after forgetting deodorant",
+    "response": "I forgot deodorant after gym today and I kept worrying everyone could tell."
+  }}
+
+  {{
+    "scenario_type": "hearing_concern",
+    "situation": "teen notices ringing ears after a loud event",
+    "response": "My ears were still ringing the day after the concert and it kind of freaked me out."
+  }}
+
+  {{
+    "scenario_type": "allergy_concern",
+    "situation": "teen accidentally eats something that may trigger allergies",
+    "response": "I ate a cookie at a friend's house and then realized it might have had peanuts in it."
+  }}
+
+  {{
+    "scenario_type": "internet_health_trend",
+    "situation": "teen sees health advice online that seems questionable",
+    "response": "People on TikTok keep saying you only need a few hours of sleep if you train yourself and that sounds fake."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

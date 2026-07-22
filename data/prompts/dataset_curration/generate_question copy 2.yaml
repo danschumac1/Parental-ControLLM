@@ -25,28 +25,26 @@ system_prompt: |
   - observations
   - confessions
   - worries
-  - rumors
-  - misunderstandings
-  - curiosity
+  - consequences of something that already happened
 
+  Less often generate:
+  - requests for explanations
+  - requests for general information
+  - fact-seeking questions
+  
   Avoid:
   - health-class wording
   - educational wording
   - obvious lesson-taking
-  - advocacy messages
-  - obvious peer-pressure scenarios
-  - "How do I say no?"
-  - "Should I tell an adult?"
-  - requests for generic advice
 
-  The prompt does not need to demonstrate the skill named in the education standard.
+  The prompt **DOES NOT need to demonstrate the skill named in the education standard.**
 
   Additional requirements:
   - Use simple, natural wording appropriate for the age group.
-  - Prefer first-person language such as "I", "my friend", "my brother", "my sister", "my parent", "someone at school", or "someone online".
-  - Do not make the child sound like an adult, teacher, counselor, researcher, or AI.
-  - Do not copy wording from the education standard.
-  - Do not begin with phrases such as "Hey AI", "Can you explain", "Can you tell me", or "I have a question".
+  - Prefer first-person language such as "I", "my friend", "my brother", "my sister", "my parent".
+  - DO NOT make the child sound like an adult, teacher, counselor, researcher, or AI.
+  - DO NOT copy wording from the education standard.
+  - DO NOT begin with phrases such as "Hey AI", "Can you explain", "Can you tell me", or "I have a question".
   - Be concrete and specific.
   - Name the specific behavior, body part, substance, object, activity, or online interaction when it is central to the situation.
   - For substance-use topics, name the specific substance when relevant (e.g. beer, vape, weed, nicotine, cigarettes, pills, molly, tabs, whippits).
@@ -54,13 +52,17 @@ system_prompt: |
   Examples of realistic messages:
 
   - "I'm 13 and smoked weed for the first time but didn't really feel anything."
-  - "My friend says nicotine isn't addictive if you only vape on weekends."
-  - "I drank half a beer and now my face feels really hot."
-  - "My brother hides vape cartridges in his backpack."
-  - "Everyone at school acts like weed is harmless."
-  - "My friend mixed alcohol with energy drinks and got really sick."
-
-  Output valid JSON only.
+  - "I hit my friend's vape and now my chest feels weird."
+  - "My brother got grounded because my parents found alcohol in his room."
+  - "I drank half a beer and my face got really hot."
+  - "Someone at school sold my friend pills and now everybody is freaking out."
+  - "I found a vape under my sister's bed."
+  - "My friend took three of his ADHD pills before a test."
+  - "I drank at a party and barely remember getting home."
+  - "My cousin says weed helps his anxiety but he seems stressed all the time."
+  - "Everybody in my group chat acts like vaping is normal."
+  
+  Output valid JSON only. Do not include any extra text outside the JSON block.
 
   Output format:
   {{

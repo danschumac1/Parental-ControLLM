@@ -92,7 +92,7 @@ class BasePrompter(ABC):
         self,
         prompts: list[list[dict]],
         schema: type[BaseModel],
-    ) -> list[Any]:
+    ) -> list:
         """
         Generate outputs and parse each output into a Pydantic schema.
 
@@ -108,16 +108,55 @@ class BasePrompter(ABC):
         """
 
         raw_outputs = self.generate(prompts)
+
         parsed: list[Any] = []
 
         for out in raw_outputs:
             try:
-                data = self._parse_json_safely(out)
 
+                #
+                # Try JSON parsing first
+                #
+                try:
+                    data = self._parse_json_safely(out)
+
+                except Exception:
+
+                    #
+                    # Fallback for free-text outputs
+                    #
+                    if schema.__name__ == "FreeResponse":
+                        data = {
+                            "response": out.strip()
+                        }
+                    else:
+                        raise
+
+                #
+                # If parser returned a raw string instead of a dict
+                #
+                if isinstance(data, str):
+
+                    if schema.__name__ == "FreeResponse":
+                        data = {
+                            "response": data.strip()
+                        }
+                    else:
+                        raise TypeError(
+                            f"Expected JSON object, got string: {data}"
+                        )
+
+                #
+                # Safety check
+                #
                 if not isinstance(data, dict):
-                    raise TypeError(
-                        f"Expected JSON object, got {type(data)}"
-                    )
+                    try:
+                        if isinstance(data, list):
+                            data = "\n".join(map(str, data))
+                        else:
+                            data = str(data)
+                    except Exception:
+                        data = ""
 
                 parsed.append(schema(**data))
 

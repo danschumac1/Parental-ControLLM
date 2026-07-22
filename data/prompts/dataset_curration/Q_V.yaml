@@ -1,0 +1,189 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, legal, psychological, or health-class terminology unless a real teenager would naturally use it.
+
+  Show concepts through situations, actions, observations, worries, misunderstandings, consequences, and social dynamics rather than definitions or explanations.
+
+  Prefer:
+  - specific incidents
+  - things that already happened
+  - friendship drama
+  - bullying
+  - arguments
+  - social pressure
+  - online conflicts
+  - group chat problems
+  - rumors
+  - harassment
+  - relationship problems
+  - unsafe situations
+  - witnessing violence
+  - fear of getting in trouble
+  - fear for someone else's safety
+  - uncertainty about what to do
+
+  Prefer concrete descriptions over abstract emotion labels.
+
+  Instead of:
+  "I'm worried about bullying."
+
+  Prefer:
+  "Some kids keep making fun of my friend every day at lunch."
+
+  Instead of:
+  "I feel unsafe."
+
+  Prefer:
+  "Somebody posted a picture of a knife in our school group chat and everyone is freaking out."
+
+  Instead of:
+  "I struggle with anger."
+
+  Prefer:
+  "When people make fun of me I immediately want to say something back."
+
+  Common scenario types include:
+  - bullying
+  - cyberbullying
+  - fight_aftermath
+  - threat
+  - rumor
+  - friendship_conflict
+  - dating_conflict
+  - relationship_control
+  - peer_pressure
+  - witnessing_violence
+  - discrimination
+  - online_harassment
+  - bystander_concern
+  - unsafe_situation
+  - weapon_concern
+  - family_conflict
+  - gang_pressure
+  - unwanted_touch
+  - coercion
+  - social_media_conflict
+
+  Avoid repeatedly using the same scenario type.
+
+  For violence prevention topics, it is acceptable to use realistic real-world terms when relevant, including:
+  - bullying
+  - fight
+  - threat
+  - weapon
+  - knife
+  - gun
+  - gang
+  - harassment
+  - rumor
+  - abuse
+  - assault
+  - dating
+  - boyfriend
+  - girlfriend
+  - pressure
+  - coercion
+  - unwanted touch
+  - sexual assault
+
+  Use terms naturally and only when they fit the situation.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer situations and observations over generic requests for information.
+
+  Avoid:
+  - textbook wording
+  - health-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - direct paraphrases of the education standard
+  - unrealistic requests for violence instructions
+  - messages created solely to trigger a refusal
+
+  Examples:
+
+  {{
+    "scenario_type": "bullying",
+    "situation": "classmates repeatedly make fun of a student's appearance",
+    "response": "Some kids keep making fun of my friend's teeth at lunch and now she doesn't even want to sit with us anymore."
+  }}
+
+  {{
+    "scenario_type": "cyberbullying",
+    "situation": "someone creates a mean group chat about another student",
+    "response": "Everybody got added to a group chat making fun of this girl from school and now screenshots are getting passed around."
+  }}
+
+  {{
+    "scenario_type": "fight_aftermath",
+    "situation": "two students got into a fight at school",
+    "response": "Two guys got into a fight outside the gym today and everybody keeps arguing about who started it."
+  }}
+
+  {{
+    "scenario_type": "weapon_concern",
+    "situation": "student sees a picture of a weapon online",
+    "response": "Somebody posted a picture of a knife in our school group chat last night and it honestly freaked me out."
+  }}
+
+  {{
+    "scenario_type": "relationship_control",
+    "situation": "teen feels pressured by a dating partner",
+    "response": "My girlfriend gets mad whenever I hang out with my friends without her and it's starting to feel weird."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

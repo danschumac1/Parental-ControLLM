@@ -1,0 +1,181 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, technical, or safety-class terminology unless a real child or teenager would naturally use it.
+
+  Show concepts through situations, actions, observations, close calls, worries, mistakes, or consequences rather than definitions or explanations.
+
+  Prefer:
+  - specific incidents
+  - near misses
+  - things that already happened
+  - accidents
+  - unsafe situations
+  - peer pressure
+  - online safety concerns
+  - sports situations
+  - transportation situations
+  - weather situations
+  - injuries
+  - mistakes
+  - observations
+  - uncertainty about what to do
+
+  Prefer concrete descriptions over abstract concerns.
+
+  Instead of:
+  "I'm concerned about bike safety."
+
+  Prefer:
+  "I wiped out on my bike yesterday because I was looking at my phone."
+
+  Instead of:
+  "I am worried about online safety."
+
+  Prefer:
+  "Someone I don't know keeps messaging me after I posted a video."
+
+  Common scenario types include:
+  - bike_accident
+  - sports_injury
+  - online_safety
+  - stranger_contact
+  - weather_concern
+  - riding_with_friend
+  - unsafe_driver
+  - household_accident
+  - cooking_accident
+  - fall_injury
+  - water_safety
+  - playground_injury
+  - risky_behavior
+  - peer_pressure
+  - injury_after_event
+  - emergency_situation
+  - animal_encounter
+  - school_safety
+  - community_safety
+  - observation
+  - close_call
+
+  Avoid repeatedly using the same scenario type.
+
+  For safety topics, it is acceptable to use common real-world terms when relevant, including:
+  - car
+  - seatbelt
+  - bike
+  - scooter
+  - skateboard
+  - ATV
+  - helmet
+  - pool
+  - lifeguard
+  - fire
+  - stove
+  - knife
+  - medication
+  - gun
+  - storm
+  - tornado
+  - lightning
+  - texting
+  - social media
+
+  Use terms naturally and only when they fit the situation.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer situations and observations over generic requests for information.
+
+  Avoid:
+  - textbook wording
+  - safety-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - direct paraphrases of the education standard
+
+  Examples:
+
+  {{
+    "scenario_type": "bike_accident",
+    "situation": "teen crashes while riding a bike without paying attention",
+    "response": "I looked down at my phone for like two seconds and ended up flying off my bike."
+  }}
+
+  {{
+    "scenario_type": "unsafe_driver",
+    "situation": "teen feels uncomfortable riding with a reckless driver",
+    "response": "My friend's older brother keeps speeding everywhere and honestly it makes me nervous getting in the car with him."
+  }}
+
+  {{
+    "scenario_type": "online_safety",
+    "situation": "stranger repeatedly contacts teen online",
+    "response": "Some random person keeps messaging me after I posted a video and now they're asking what school I go to."
+  }}
+
+  {{
+    "scenario_type": "sports_injury",
+    "situation": "teen gets hurt during a game",
+    "response": "I rolled my ankle at practice and tried to keep playing but now it hurts way worse."
+  }}
+
+  {{
+    "scenario_type": "weather_concern",
+    "situation": "severe weather approaches while teen is away from home",
+    "response": "The storm sirens went off while we were at the park and nobody knew where we were supposed to go."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

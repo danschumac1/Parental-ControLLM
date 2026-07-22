@@ -15,7 +15,7 @@ Example usage:
     VLLM_LOGGING_LEVEL=WARNING CUDA_VISIBLE_DEVICES=1 python src/create_dataset.py \
         --backend vllm \
         --model Qwen/Qwen2.5-7B-Instruct \
-        --sample_size -1 \
+        --sample_size 30 \
         --temperature 0.5 \
         --max_tokens 128
 """
@@ -30,27 +30,8 @@ import pandas as pd
 
 # Local imports
 from utils.file_io import load_yaml_prompt
-from utils.prompters import (
-    OpenAIPrompter,
-    VLLMPrompter,
-    BasePrompter,
-    ChatPrompt,
-)
-from utils.schemas import GeneratedQuestion, FreeResponse
-
-PROMPT_DIR = "./data/prompts/dataset_curration"
-
-PROMPT_MAP = {
-    "AOD": "Q_AOD.yaml",
-    "FN": "Q_FN.yaml",
-    "MEH": "Q_MEH.yaml",
-    "PA": "Q_PA.yaml",
-    "PHW": "Q_PHW.yaml",
-    "S": "Q_S.yaml",
-    "SH": "Q_SH.yaml",
-    "T": "Q_T.yaml",
-    "V": "Q_V.yaml",
-}
+from utils.prompters import OpenAIPrompter, VLLMPrompter, BasePrompter, ChatPrompt
+from utils.schemas import FreeResponse, GeneratedQuestion
 
 
 def parse_args() -> argparse.Namespace:
@@ -80,6 +61,13 @@ def parse_args() -> argparse.Namespace:
         type=str,
         default="./data/cleaned/hecat_standards.tsv",
         help="Path to cleaned HECAT standards TSV.",
+    )
+
+    parser.add_argument(
+        "--question_prompt_path",
+        type=str,
+        default="./data/prompts/dataset_curration/generate_question.yaml",
+        help="Path to YAML prompt for question generation.",
     )
 
     parser.add_argument(
@@ -150,27 +138,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_prompt_templates() -> dict[str, dict[str, str]]:
-    """
-    Load one YAML prompt template per HECAT module.
-    """
-
-    templates = {}
-
-    for module_code, filename in PROMPT_MAP.items():
-        path = os.path.join(PROMPT_DIR, filename)
-
-        if not os.path.exists(path):
-            print(f"WARNING: Prompt file not found: {path}")
-            continue
-
-        templates[module_code] = load_yaml_prompt(path)
-
-    print(f"Loaded {len(templates)} module prompt templates.")
-
-    return templates
-
-
 def load_standards(
     standards_path: str,
     sample_size: int,
@@ -181,24 +148,15 @@ def load_standards(
     """
 
     df_standards = pd.read_csv(standards_path, sep="\t")
+    # Filter to only include grades 6-12 and specific modules
+    df_standards = df_standards[df_standards["grade_span"].isin(["9-12", "6-8"])]
 
-    # Filter to only include grades 6-12
-    # df_standards = df_standards[
-    #     df_standards["grade_span"].isin(["9-12", "6-8"])
-    # ]
 
     # TODO: Remove this filter if you want to include all modules
-    # df_standards = df_standards[
-    #     df_standards["module_code"].isin([
-    #         # "AOD", 
-    #         "MEH"
-    #         ])
-    # ]
+    df_standards = df_standards[df_standards["module_code"].isin(["AOD", "MEH"])] 
 
-    print(
-        f"Loaded {len(df_standards)} HECAT standards "
-        f"from {standards_path}."
-    )
+
+    print(f"Loaded {len(df_standards)} HECAT standards from {standards_path}.")
 
     if sample_size == -1:
         df_sample = df_standards
@@ -214,7 +172,6 @@ def load_standards(
             n=sample_size,
             random_state=random_state,
         )
-
         print(f"Sampled {len(df_sample)} standards.")
 
     return df_sample.to_dict(orient="records")
@@ -223,22 +180,21 @@ def load_standards(
 def build_format_args(row: dict[str, Any]) -> dict[str, Any]:
     """
     Build formatting arguments used by YAML prompt templates.
+
+    The keys here should match placeholders in the prompt YAML files.
     """
 
     return {
         "grade_range": row["grade_span"],
-        "grade_span": row["grade_span"],
-        "module_code": row["module_code"],
         "health_category": row["module"],
         "education_standard": row["expectation"],
-        "scenario_type": row.get("scenario_type", ""),
-        "situation": row.get("situation", ""),
         "generated_question": row.get("generated_question", ""),
     }
 
+
 def construct_chat_prompts(
     data: list[dict[str, Any]],
-    prompt_templates: dict[str, dict[str, str]],
+    prompt_template: dict[str, str],
     prompt_type: str,
 ) -> list[dict[str, Any]]:
     """
@@ -257,22 +213,9 @@ def construct_chat_prompts(
     for row in data:
         fmt_args = build_format_args(row)
 
-        module_code = row["module_code"]
-
-        if module_code not in prompt_templates:
-            raise ValueError(
-                f"No prompt template found for module_code='{module_code}'."
-            )
-
-        prompt_template = prompt_templates[module_code]
-
         row[target_key] = ChatPrompt(
-            system_text=prompt_template["system_prompt"].format(
-                **fmt_args
-            ),
-            user_text=prompt_template["user_prompt"].format(
-                **fmt_args
-            ),
+            system_text=prompt_template["system_prompt"].format(**fmt_args),
+            user_text=prompt_template["user_prompt"].format(**fmt_args),
         )
 
     return data
@@ -280,21 +223,23 @@ def construct_chat_prompts(
 
 def generate_dataset_component(
     data: list[dict[str, Any]],
-    prompt_templates: dict[str, dict[str, str]],
+    prompt_template: dict[str, str],
     prompt_type: str,
     output_key: str,
-    schema: Any,
     prompter: BasePrompter,
 ) -> list[dict[str, Any]]:
     """
     Generate either questions or answers.
+
+    This function does not care whether the backend is OpenAI or vLLM.
+    It only requires a prompter with generate_structured().
     """
 
     component_name = "questions" if prompt_type == "q" else "answers"
 
     data = construct_chat_prompts(
         data=data,
-        prompt_templates=prompt_templates,
+        prompt_template=prompt_template,
         prompt_type=prompt_type,
     )
 
@@ -307,15 +252,16 @@ def generate_dataset_component(
 
     results = prompter.generate_structured(
         prompts=messages,
-        schema=schema,
+        # schema=FreeResponse,
+        schema=GeneratedQuestion,
     )
 
+    # for row, result in zip(data, results):
+    #     row[output_key] = result.response
+
     for row, result in zip(data, results):
-
-        if prompt_type == "q":
-            row["scenario_type"] = result.scenario_type
-            row["situation"] = result.situation
-
+        row["scenario_type"] = result.scenario_type
+        row["situation"] = result.situation
         row[output_key] = result.response
 
     print(f"Finished generating {component_name}.")
@@ -365,7 +311,10 @@ def make_output_path(
 
     safe_model_name = model.replace("/", "__")
 
-    sample_label = "all" if sample_size == -1 else str(sample_size)
+    if sample_size == -1:
+        sample_label = "all"
+    else:
+        sample_label = str(sample_size)
 
     filename = (
         f"{safe_model_name}"
@@ -412,62 +361,28 @@ def main() -> None:
         random_state=args.random_state,
     )
 
-    #
-    # Load question prompts
-    #
-    gen_q_templates = load_prompt_templates()
+    gen_q_template = load_yaml_prompt(args.question_prompt_path)
+    gen_a_template = load_yaml_prompt(args.answer_prompt_path)
+    print("Loaded question and answer prompt templates.")
 
-    print("Loaded question prompt templates.")
-
-    #
-    # Load answer prompt
-    #
-    gen_a_template = load_yaml_prompt(
-        args.answer_prompt_path
-    )
-
-    #
-    # Same answer prompt for every module
-    #
-    gen_a_templates = {
-        module_code: gen_a_template
-        for module_code in PROMPT_MAP.keys()
-    }
-
-    print("Loaded answer prompt template.")
-
-    #
-    # Build model
-    #
     prompter = build_prompter(args)
 
-    #
-    # Generate questions
-    #
     data = generate_dataset_component(
         data=data,
-        prompt_templates=gen_q_templates,
+        prompt_template=gen_q_template,
         prompt_type="q",
         output_key="generated_question",
-        schema=GeneratedQuestion,
         prompter=prompter,
     )
 
-    #
-    # Generate answers
-    #
-    data = generate_dataset_component(
-        data=data,
-        prompt_templates=gen_a_templates,
-        prompt_type="a",
-        output_key="generated_answer",
-        schema=FreeResponse,
-        prompter=prompter,
-    )
+    # data = generate_dataset_component(
+    #     data=data,
+    #     prompt_template=gen_a_template,
+    #     prompt_type="a",
+    #     output_key="appropriate_answer",
+    #     prompter=prompter,
+    # )
 
-    #
-    # Save dataset
-    #
     output_path = make_output_path(
         output_dir=args.output_dir,
         model=args.model,

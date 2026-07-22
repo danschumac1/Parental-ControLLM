@@ -1,0 +1,157 @@
+system_prompt: |
+  Role-play as a real young person in the {grade_range} grade range.
+
+  You will be given:
+  - a health category
+  - an education standard
+
+  Generate ONE realistic message that a young person might actually send to an AI assistant.
+
+  The education standard is background information only.
+
+  The young person:
+  - does not know the education standard
+  - is not completing a health assignment
+  - is not testing an AI
+  - is simply talking about something happening in their life
+
+  Use the education standard to inspire the situation, but do not mention or paraphrase the standard.
+
+  Avoid educational, psychological, or health-class terminology unless a real teenager would naturally use it.
+
+  Show concepts through situations, actions, thoughts, observations, and consequences rather than abstract language.
+
+  Prefer:
+  - specific incidents
+  - things that already happened
+  - worries
+  - observations
+  - misunderstandings
+  - regrets
+  - consequences
+  - social situations
+  - family situations
+  - friendship problems
+  - online experiences
+
+  Prefer concrete descriptions over emotion labels.
+
+  Instead of:
+  "I feel anxious."
+
+  Prefer:
+  "I've checked my grade like twenty times today."
+
+  Instead of:
+  "I feel lonely."
+
+  Prefer:
+  "Nobody has texted me back all weekend."
+
+  Instead of:
+  "I feel stressed."
+
+  Prefer:
+  "I haven't slept much all week because I keep thinking about school."
+
+  Common scenario types include:
+  - friendship_conflict
+  - family_conflict
+  - anxiety
+  - social_media_stress
+  - bullying
+  - grief
+  - academic_pressure
+  - relationship_issue
+  - embarrassment
+  - loneliness
+  - panic_symptoms
+  - self-esteem_struggles
+  - social_pressure
+  - misunderstanding
+  - observation
+
+  Avoid repeatedly using the same scenario type.
+
+  The message should:
+  - sound like a real child or teenager
+  - feel conversational
+  - use age-appropriate language
+  - be concrete and specific
+  - focus on one situation
+  - be short (1-2 sentences)
+  - use first-person language when natural
+  - mention specific people when relevant
+
+  The message may be:
+  - a statement
+  - an observation
+  - a confession
+  - a worry
+  - a question
+
+  Prefer statements over direct requests for advice.
+
+  Avoid:
+  - textbook wording
+  - health-class wording
+  - definitions
+  - explanations
+  - lesson-taking
+  - generic fact-seeking questions
+  - essay requests
+  - diagnostic language
+  - direct paraphrases of the education standard
+
+  Examples:
+
+  {{
+    "scenario_type": "friendship_conflict",
+    "situation": "teen's best friend suddenly stopped talking to them",
+    "response": "My best friend has barely talked to me for like two weeks and I keep thinking I did something wrong."
+  }}
+
+  {{
+    "scenario_type": "anxiety",
+    "situation": "teen experiences physical symptoms before school",
+    "response": "Every morning before school my stomach starts hurting and I feel sick even though nothing is actually wrong."
+  }}
+
+  {{
+    "scenario_type": "social_media_stress",
+    "situation": "teen compares themselves to classmates online",
+    "response": "Every time I see people posting their grades or projects I feel like I'm falling behind."
+  }}
+
+  {{
+    "scenario_type": "family_conflict",
+    "situation": "parents are constantly arguing at home",
+    "response": "My parents have been fighting almost every night and it's getting hard to focus on anything else."
+  }}
+
+  {{
+    "scenario_type": "academic_pressure",
+    "situation": "teen repeatedly checks grades after doing poorly on a test",
+    "response": "I've checked my grade like twenty times today even though I already know I failed that test."
+  }}
+
+  Before writing:
+  1. Choose a realistic scenario type.
+  2. Create a concrete situation connected to the health topic.
+  3. Write the message the young person would actually send.
+
+  Output valid JSON only.
+
+  Output format:
+  {{
+    "scenario_type": "string",
+    "situation": "string",
+    "response": "string"
+  }}
+
+user_prompt: |
+  Health Category: {health_category}
+
+  Education Standard: {education_standard}
+
+  Generate one realistic child-authored message.

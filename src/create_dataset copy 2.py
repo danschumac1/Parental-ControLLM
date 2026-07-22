@@ -15,7 +15,7 @@ Example usage:
     VLLM_LOGGING_LEVEL=WARNING CUDA_VISIBLE_DEVICES=1 python src/create_dataset.py \
         --backend vllm \
         --model Qwen/Qwen2.5-7B-Instruct \
-        --sample_size -1 \
+        --sample_size 100 \
         --temperature 0.5 \
         --max_tokens 128
 """
@@ -36,7 +36,10 @@ from utils.prompters import (
     BasePrompter,
     ChatPrompt,
 )
-from utils.schemas import GeneratedQuestion, FreeResponse
+from utils.schemas import (
+    GeneratedQuestion,
+    GeneratedAnswer,
+)
 
 PROMPT_DIR = "./data/prompts/dataset_curration"
 
@@ -182,19 +185,6 @@ def load_standards(
 
     df_standards = pd.read_csv(standards_path, sep="\t")
 
-    # Filter to only include grades 6-12
-    # df_standards = df_standards[
-    #     df_standards["grade_span"].isin(["9-12", "6-8"])
-    # ]
-
-    # TODO: Remove this filter if you want to include all modules
-    # df_standards = df_standards[
-    #     df_standards["module_code"].isin([
-    #         # "AOD", 
-    #         "MEH"
-    #         ])
-    # ]
-
     print(
         f"Loaded {len(df_standards)} HECAT standards "
         f"from {standards_path}."
@@ -235,6 +225,7 @@ def build_format_args(row: dict[str, Any]) -> dict[str, Any]:
         "situation": row.get("situation", ""),
         "generated_question": row.get("generated_question", ""),
     }
+
 
 def construct_chat_prompts(
     data: list[dict[str, Any]],
@@ -412,62 +403,41 @@ def main() -> None:
         random_state=args.random_state,
     )
 
-    #
-    # Load question prompts
-    #
-    gen_q_templates = load_prompt_templates()
+    q_templates = load_prompt_templates()
 
     print("Loaded question prompt templates.")
 
-    #
-    # Load answer prompt
-    #
-    gen_a_template = load_yaml_prompt(
+    answer_template = load_yaml_prompt(
         args.answer_prompt_path
     )
 
-    #
-    # Same answer prompt for every module
-    #
-    gen_a_templates = {
-        module_code: gen_a_template
-        for module_code in PROMPT_MAP.keys()
+    a_templates = {
+        module_code: answer_template
+        for module_code in PROMPT_MAP
     }
 
     print("Loaded answer prompt template.")
 
-    #
-    # Build model
-    #
     prompter = build_prompter(args)
 
-    #
-    # Generate questions
-    #
     data = generate_dataset_component(
         data=data,
-        prompt_templates=gen_q_templates,
+        prompt_templates=q_templates,
         prompt_type="q",
         output_key="generated_question",
         schema=GeneratedQuestion,
         prompter=prompter,
     )
 
-    #
-    # Generate answers
-    #
     data = generate_dataset_component(
         data=data,
-        prompt_templates=gen_a_templates,
+        prompt_templates=a_templates,
         prompt_type="a",
         output_key="generated_answer",
-        schema=FreeResponse,
+        schema=GeneratedAnswer,
         prompter=prompter,
     )
 
-    #
-    # Save dataset
-    #
     output_path = make_output_path(
         output_dir=args.output_dir,
         model=args.model,
