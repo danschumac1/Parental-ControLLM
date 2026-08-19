@@ -30,13 +30,13 @@ import pandas as pd
 
 # Local imports
 from utils.file_io import load_yaml_prompt
-from utils.prompters import (
+from utilsOLD.prompters import (
     OpenAIPrompter,
     VLLMPrompter,
     BasePrompter,
     ChatPrompt,
 )
-from utils.schemas import GeneratedQuestion, FreeResponse
+from utilsOLD.schemas import GeneratedQuestion, FreeResponse
 
 PROMPT_DIR = "./data/prompts/dataset_curration"
 

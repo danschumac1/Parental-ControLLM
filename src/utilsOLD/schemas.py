@@ -1,21 +1,5 @@
-from dataclasses import dataclass
-
 from pydantic import BaseModel, Field
-from typing import Literal, Optional
-
-@dataclass
-class ChatPrompt:
-    """
-    Minimal chat prompt for vLLM / OpenAI-style models.
-    """
-    user_text: str
-    system_text: Optional[str] = None
-    def to_messages(self) -> list[dict[str, str]]:
-        msgs = []
-        if self.system_text:
-            msgs.append({"role": "system", "content": self.system_text})
-        msgs.append({"role": "user", "content": self.user_text})
-        return msgs
+from typing import Literal
 
 class LikertScore(BaseModel):
     score: Literal[1, 2, 3, 4, 5] = Field(
@@ -25,3 +9,25 @@ class LikertScore(BaseModel):
 
 class FreeResponse(BaseModel):
     response: str
+
+class GeneratedQuestion(BaseModel):
+    scenario_type: str = Field(
+        description=(
+            "Short label describing the underlying situation. "
+            "Examples: peer_pressure, party_aftermath, "
+            "family_conflict, health_scare, rumor, "
+            "social_media_influence, friend_in_trouble, "
+            "relationship_issue, trying_to_quit."
+        )
+    )
+
+    situation: str = Field(
+        description=(
+            "One-sentence description of the specific situation "
+            "connecting the message to the health topic."
+        )
+    )
+
+    response: str = Field(
+        description="Realistic child-authored message."
+    )

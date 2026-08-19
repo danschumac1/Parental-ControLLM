@@ -18,8 +18,8 @@ import yaml # pyaml
 
 # user defined
 from utils.file_io import load_jsonl_file, save_jsonl_file
-from utils.vllm_utils import VllmServer, VLLMPrompter, ChatPrompt
-from utils.schemas import FreeResponse
+from utilsOLD.vllm_utils import VllmServer, VLLMPrompter, ChatPrompt
+from utilsOLD.schemas import FreeResponse
 
 # CONSTANTS
 PROMPT_PATH = "./data/prompts/llm_as_judge/{PROMPT}.yaml"

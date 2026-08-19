@@ -24,6 +24,7 @@ from typing import Any, Optional
 from json_repair import repair_json
 from openai import OpenAI
 from pydantic import BaseModel
+from tqdm import tqdm
 from vllm import LLM, SamplingParams
 from dotenv import load_dotenv
 
@@ -273,16 +274,89 @@ class OpenAIPrompter(BasePrompter):
 
         outputs: list[str] = []
 
-        for prompt in prompts:
+        for prompt in tqdm(prompts):
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=prompt,
                 temperature=self.temperature,
                 max_completion_tokens=self.max_tokens,
             )
+            print("#" * 20)
+            print(response.choices[0].message.content.strip())
+            print()
+            print()
+            print()
 
             outputs.append(
                 response.choices[0].message.content.strip()
             )
 
         return outputs
+
+def build_prompter(
+        backend: str, 
+        model: str, 
+        temperature: float, 
+        max_tokens: int, 
+        top_p: float = 0.9, 
+        tensor_parallel_size: int = 1, 
+        gpu_memory_utilization: float = 0.9
+        ) -> BasePrompter:
+    """
+    Build the correct prompter for the selected backend.
+    """
+    assert backend in ["openai", "vllm"], f"Unknown backend: {backend}"
+
+    if backend == "openai":
+        print(f"Using OpenAI model: {model}")
+
+        return OpenAIPrompter(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+
+    if backend == "vllm":
+        print(f"Using local vLLM model: {model}")
+
+        return VLLMPrompter(
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            tensor_parallel_size=tensor_parallel_size,
+            gpu_memory_utilization=gpu_memory_utilization,
+        )
+
+def construct_chat_prompts(
+    data: list[dict[str, Any]],
+    prompt_template: dict[str, str],
+    user_dict: dict[str, str] | None = None,
+    sys_dict: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Add ChatPrompt objects to each row.
+    """
+
+    user_dict = user_dict or {}
+    sys_dict = sys_dict or {}
+
+    for row in data:
+
+        user_format = {
+            key: row[column]
+            for key, column in user_dict.items()
+        }
+
+        sys_format = {
+            key: row[column]
+            for key, column in sys_dict.items()
+        }
+
+        row["chat_prompt"] = ChatPrompt(
+            system_text=prompt_template["system_prompt"].format(**sys_format),
+            user_text=prompt_template["user_prompt"].format(**user_format),
+        )
+
+    return data
+    

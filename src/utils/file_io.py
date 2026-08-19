@@ -13,6 +13,21 @@ def load_yaml_prompts(prompt_types, prompt_folder):
             prompts[name] = yaml.safe_load(f)
     return prompts
 
+def load_single_yaml_prompt(prompt_path):
+    """Load a single YAML prompt template from the specified path."""
+    with open(prompt_path, "r") as f:
+        return yaml.safe_load(f)
+
+def load_tsv_file(file_path):
+    """Read a TSV file and return a list of dictionaries."""
+    with open(file_path, 'r') as f:
+        lines = f.readlines()
+        headers = lines[0].strip().split('\t')
+        data = []
+        for line in lines[1:]:
+            values = line.strip().split('\t')
+            data.append(dict(zip(headers, values)))
+        return data
 
 def load_jsonl_file(file_path):
     """Read a JSONL file and return a list of dictionaries."""

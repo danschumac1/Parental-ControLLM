@@ -18,8 +18,8 @@ import yaml # pyaml
 
 # user defined
 from utils.file_io import load_yaml_prompts, load_jsonl_file
-from utils.vllm_utils import VllmServer, VLLMPrompter, ChatPrompt
-from utils.schemas import LikertScore
+from utilsOLD.vllm_utils import VllmServer, VLLMPrompter, ChatPrompt
+from utilsOLD.schemas import LikertScore
 
 # CONSTANTS
 PROMPT_TYPES = [
