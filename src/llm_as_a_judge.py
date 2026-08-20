@@ -1,130 +1,124 @@
-# src/utils/llm_as_a_judge.py
-
-"""
+'''
+TO RUN:
 python ./src/llm_as_a_judge.py \
-    --dataset child_safe \
-    --model gpt-4o-mini \
-    --cuda_device 1 \
-    --port 8000 \
-    --log_file ./vllm_server__llm_as_judge.log
-"""
-# standard args
+    --input_data_path ./data/generated/answers/gpt-5-nano__expectation.jsonl \
+    --prompt_template_path ./data/prompts/llm_as_a_judge/refusal.yaml \
+    --query_col expectation \
+    --response_col answer \
+    --judge_model gpt-5-nano \
+    --backend openai
+'''
+
+
+
 import os
 import argparse
-import json
 
-# pip installs 
-import yaml # pyaml
+from utils.file_io import (
+    append_jsonl_file,
+    load_jsonl_file,
+    load_single_yaml_prompt,
+    remove_completed_items,
+    save_args_as_config_json,
+)
+from utils.prompting import construct_messages, generate
 
-# user defined
-from utils.file_io import load_yaml_prompts, load_jsonl_file
-from utilsOLD.vllm_utils import VllmServer, VLLMPrompter, ChatPrompt
-from utilsOLD.schemas import LikertScore
 
-# CONSTANTS
-PROMPT_TYPES = [
-    "appropriateness",
-    "constructive_guidance",
-    "information_value",
-    "risk_reduction",
-    "refusal"
-]
 
-PROMPT_PATH = "./data/prompts/llm_as_judge/{PROMPT}.yaml"
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Run LLM as a judge for evaluation.")
-    parser.add_argument("--dataset", type=str, required=True, choices=["child_safe", "minor_bench"], help="Dataset name (e.g., 'topic1').")
-    parser.add_argument("--model", type=str, required=True, help="Model name (e.g., 'gpt-4').")
-    parser.add_argument("--cuda_device", type=str, default="0", help="CUDA device ID (default: 0).")
-    parser.add_argument("--port", type=int, default=8000, help="Port for VLLM server (default: 8000).")
-    parser.add_argument("--log_file", type=str, default="./vllm_server__llm_as_judge.log", help="Log file path for VLLM server.")
+    parser.add_argument("--input_data_path", required=True)
+    parser.add_argument("--prompt_template_path", required=True)
+
+    parser.add_argument("--query_col", required=True)
+    parser.add_argument("--response_col", required=True)
+
+    parser.add_argument("--judge_model", required=True)
+    parser.add_argument("--backend", choices=["openai", "vllm"], required=True)
+    parser.add_argument("--vllm_base_url", default="")
+
+    parser.add_argument("--temperature", type=float, default=0.0)
+    parser.add_argument("--max_tokens", type=int, default=512)
+    parser.add_argument("--top_p", type=float, default=0.9)
+
+    parser.add_argument(
+        "--output_dir",
+        default="./data/generated/llmaj_refusal",
+    )
+
     return parser.parse_args()
 
-def run_llm_as_a_judge(
-    dataset: str,
-    model: str,
-    cuda_device: str,
-    port: int,
-    log_file: str,
-) -> dict:
-    """Core callable API used by eval.py or CLI."""
-    
-    # Load data
-    jsonl_data = load_jsonl_file(f"./data/cleaned/{dataset}.jsonl")
-    print(f"Loaded {len(jsonl_data)} entries from dataset '{dataset}'.")
 
-    # Load prompt templates
-    prompts = load_yaml_prompts(
-        PROMPT_TYPES,
-        "./data/prompts/llm_as_judge",
-    )
-    print(f"Loaded prompt specifications for: {', '.join(prompts.keys())}.")
-
-    # Construct ChatPrompt objects for every entry and judge type
-    for entry in jsonl_data:
-        query = entry["prompt"]
-        response = entry["response"]
-
-        for prompt_type, template in prompts.items():
-            cp = ChatPrompt(
-                system_text=template["system_prompt"],
-                user_text=template["user_prompt"].format(
-                    query=query,
-                    response=response,
-                ),
-            )
-
-            entry[prompt_type] = cp
-
-    # Example
-    print(jsonl_data[0]["appropriateness"])
-
-    # print(f"Constructed chat prompts for all entries in dataset '{dataset}'.")
-    print(f"{jsonl_data[0]['appropriateness']}")
-    exit()
-
-    # print(f"Connecting to VLLM server with model {model} on CUDA device {cuda_device} at port {port}...")
-    # with VllmServer(
-    #     model=model,
-    #     cuda_device=cuda_device,
-    #     port=port,
-    #     log_file=log_file,
-    # ):
-    #     print(f"Started VLLM server on port {port} with model {model}.")
-    #     prompter = VLLMPrompter(
-    #         base_url=f"http://localhost:{port}/v1",
-    #         model=model,
-    #         temperature=0.0,
-    #         max_tokens=512,
-    #     )
-    #     print("Initialized VLLM prompter client.")
-
-    #     results = prompter.generate_structured(
-    #         prompts=messages,
-    #         schema=LikertScore,
-    #     )
-    #     print(f"Received structured responses from LLM for all prompts.")
-
-    # return {
-    #     name: {
-    #         "score": r.score,
-    #         "justification": r.justification,
-    #     }
-    #     for name, r in zip(PROMPT_TYPES, results)
-    # }
 
 def main():
     args = parse_args()
-    results = run_llm_as_a_judge(
-        dataset=args.dataset,
-        model=args.model,
-        cuda_device=args.cuda_device,
-        port=args.port,
-        log_file=args.log_file,
+
+    # -------------------------
+    # Determine Output path
+    # -------------------------
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    safe_model_name = args.judge_model.replace("/", "--")
+
+    output_path = (
+        f"{args.output_dir}/"
+        f"{safe_model_name}__{args.query_col}.jsonl"
     )
-    print(f"Finished")
-    # print(f"Final results:\n{json.dumps(results, indent=2)}")
+
+    # -------------------------
+    # Load Data With Resume
+    # -------------------------
+    data = load_jsonl_file(args.input_data_path)
+    data = remove_completed_items(data,output_path,idx_key="item_number")
+
+    if not data:
+        print("All requested items have already been completed.")
+        return
+
+    # -------------------------
+    # Set up prompts
+    # -------------------------
+    prompt_template = load_single_yaml_prompt(args.prompt_template_path)
+
+    messages = construct_messages(
+        data,
+        prompt_template,
+        user_map={
+            "query": args.query_col,
+            "response": args.response_col,
+        },
+    )
+
+    print(f"Example message: {messages[0]}")
+
+    # -------------------------
+    # Generation
+    # -------------------------
+    results = generate(
+        messages=messages,
+        model=args.judge_model,
+        backend=args.backend,
+        vllm_base_url=args.vllm_base_url,
+        temperature=args.temperature,
+        max_tokens=args.max_tokens,
+        top_p=args.top_p,
+    )
+
+    # -------------------------
+    # Save
+    # -------------------------
+    out_data = [
+        {**row,"refusal_judgement": result}
+        for row, result in zip(data, results)
+    ]
+
+    append_jsonl_file(output_path, out_data)
+    save_args_as_config_json(args, output_path)
+
+    print(f"Results saved to {output_path}")
+
+
 
 if __name__ == "__main__":
     main()

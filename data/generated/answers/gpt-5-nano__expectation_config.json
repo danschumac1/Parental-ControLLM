@@ -1,0 +1,12 @@
+{
+    "query_column": "expectation",
+    "backend": "openai",
+    "model": "gpt-5-nano",
+    "n_rows": -1,
+    "module_codes": [
+        "all"
+    ],
+    "temperature": 0.7,
+    "max_tokens": 4096,
+    "top_p": 0.9
+}

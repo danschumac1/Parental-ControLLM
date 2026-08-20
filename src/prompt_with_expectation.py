@@ -2,32 +2,41 @@
 2026-08-19
 
 OpenAI:
-python ./src/prompt_with_expectation.py \
+nohup python ./src/prompt_with_expectation.py \
     --query_column expectation \
     --backend openai \
     --model gpt-5-nano \
     --module_codes all \
-    --max_tokens 4096
+    --max_tokens 4096 \
+    > prompt_with_expectation_openai.log 2>&1 &
 
+# TO KILL: 1881611
+    
 Local vLLM:
 
 TERMINAL 1:
-# vllm serve Qwen/Qwen2.5-1.5B-Instruct \
-#     --port 8002
-vllm serve Qwen/Qwen3.8-27B \
+vllm serve Qwen/Qwen2.5-1.5B-Instruct \
+    --port 8002
+vllm serve Qwen/Qwen2.5-1.5B-Instruct \
     --port 8002 \
     --tensor-parallel-size 2 \
     --gpu-memory-utilization 0.90
 
+# later to kill ---
+# kill 1879466
 
 TERMINAL 2:
-python ./src/prompt_with_expectation.py \
+nohup python ./src/prompt_with_expectation.py \
     --query_column expectation \
     --backend vllm \
-    --model Qwen/Qwen3.8-27B \
-    --n_rows 5 \
-    --module_codes SH \
-    --temperature 0.0
+    --model Qwen/Qwen2.5-1.5B-Instruct \
+    --n_rows -1 \
+    --module_codes all \
+    --temperature 0.7 \
+    > prompt_with_expectation.log 2>&1 &
+
+# TO KILL: 1880766
+
 '''
 
 import os
@@ -35,18 +44,16 @@ import argparse
 import json
 import random
 
-import dotenv
-from openai import OpenAI
-from tqdm import tqdm
 
-from utils.file_io import load_tsv_file, load_single_yaml_prompt
+from utils.file_io import (
+    append_jsonl_file, load_tsv_file, load_single_yaml_prompt, remove_completed_items,
+    save_args_as_config_json)
+from utils.prompting import construct_messages, generate
 
 
 INPUT_DATA_PATH = "data/cleaned/hecat_standards.tsv"
 PROMPT_TEMPLATE_PATH = "./data/prompts/simple.yaml"
-
 VLLM_BASE_URL = "http://localhost:8002/v1"
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -56,107 +63,20 @@ def parse_args() -> argparse.Namespace:
         choices=["generated_question", "expectation"],
         required=True,
     )
-
-    parser.add_argument(
-        "--backend",
-        choices=["openai", "vllm"],
-        required=True,
-    )
-
-    parser.add_argument(
-        "--model",
-        required=True,
-    )
-
-    parser.add_argument(
-        "--n_rows",
-        type=int,
-        default=-1,
-    )
-
+    parser.add_argument("--backend", choices=["openai", "vllm"], required=True)
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--n_rows", type=int, default=-1)
     parser.add_argument(
         "--module_codes",
         nargs="+",
         default=None,
-        choices=[
-            "all",
-            "AOD",
-            "FN",
-            "MEH",
-            "PA",
-            "PHW",
-            "S",
-            "SH",
-            "T",
-            "V",
-        ],
+        choices=["all", "AOD", "FN", "MEH", "PA", "PHW", "S", "SH", "T", "V"],
     )
-
-    parser.add_argument(
-        "--temperature",
-        type=float,
-        default=0.7,
-    )
-
-    parser.add_argument(
-        "--max_tokens",
-        type=int,
-        default=1024,
-    )
-
-    parser.add_argument(
-        "--top_p",
-        type=float,
-        default=0.9,
-    )
+    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--max_tokens", type=int, default=1024)
+    parser.add_argument("--top_p", type=float, default=0.9)
 
     return parser.parse_args()
-
-
-def save_config(args, output_path):
-    config = {
-        "query_column": args.query_column,
-        "backend": args.backend,
-        "model": args.model,
-        "n_rows": args.n_rows,
-        "module_codes": args.module_codes,
-        "temperature": args.temperature,
-        "max_tokens": args.max_tokens,
-        "top_p": args.top_p,
-    }
-
-    config_path = output_path.replace(
-        ".jsonl",
-        "_config.json",
-    )
-
-    with open(config_path, "w", encoding="utf-8") as f:
-        json.dump(
-            config,
-            f,
-            ensure_ascii=False,
-            indent=4,
-        )
-
-
-def load_completed_items(output_path):
-    if not os.path.exists(output_path):
-        return set()
-
-    completed_items = set()
-
-    with open(output_path, "r", encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-
-            row = json.loads(line)
-
-            completed_items.add(
-                row["item_number"]
-            )
-
-    return completed_items
 
 
 def filter_data(
@@ -167,150 +87,15 @@ def filter_data(
     random.shuffle(data)
 
     if module_codes is None or "all" in module_codes:
-        module_codes = sorted(
-            {
-                row["module_code"]
-                for row in data
-            }
-        )
+        module_codes = sorted({row["module_code"] for row in data})
 
     return [
-        row
-        for code in module_codes
+        row for code in module_codes
         for row in [
-            r
-            for r in data
+            r for r in data
             if r["module_code"] == code
         ][:n_rows if n_rows > 0 else None]
     ]
-
-
-def construct_messages(
-    data,
-    prompt_template,
-    query_column,
-):
-    messages = []
-
-    for row in data:
-        messages.append(
-            [
-                {
-                    "role": "system",
-                    "content": prompt_template[
-                        "system_prompt"
-                    ],
-                },
-                {
-                    "role": "user",
-                    "content": prompt_template[
-                        "user_prompt"
-                    ].format(
-                        question=row[
-                            query_column
-                        ]
-                    ),
-                },
-            ]
-        )
-
-    return messages
-
-
-def generate_openai(
-    messages,
-    model,
-    max_tokens,
-):
-    dotenv.load_dotenv(
-        "./resources/.env"
-    )
-
-    client = OpenAI(
-        api_key=os.environ[
-            "OPENAI_API_KEY"
-        ],
-    )
-
-    results = []
-
-    for prompt in tqdm(messages):
-        response = client.responses.create(
-            model=model,
-            input=prompt,
-            reasoning={
-                "effort": "low",
-            },
-            max_output_tokens=max_tokens,
-        )
-
-        results.append(
-            response.output_text.strip()
-        )
-
-    return results
-
-
-def generate_vllm(
-    messages,
-    model,
-    temperature,
-    max_tokens,
-    top_p,
-):
-    client = OpenAI(
-        api_key="EMPTY",
-        base_url=VLLM_BASE_URL,
-    )
-
-    results = []
-
-    for prompt in tqdm(messages):
-        response = client.chat.completions.create(
-            model=model,
-            messages=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-        )
-
-        results.append(
-            response.choices[0]
-            .message.content
-            .strip()
-        )
-
-    return results
-
-
-def generate(
-    messages,
-    model,
-    backend,
-    temperature,
-    max_tokens,
-    top_p,
-):
-    assert backend in [
-        "openai",
-        "vllm",
-    ], f"Unknown backend: {backend}"
-
-    if backend == "openai":
-        return generate_openai(
-            messages=messages,
-            model=model,
-            max_tokens=max_tokens,
-        )
-
-    if backend == "vllm":
-        return generate_vllm(
-            messages=messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-        )
 
 
 def main():
@@ -358,27 +143,10 @@ def main():
     # Resume logic
     # -------------------------
 
-    completed_items = load_completed_items(
-        output_path
+    data = remove_completed_items(
+        output_path,
+        idx_key="item_number"
     )
-
-    if completed_items:
-        print(
-            f"Found {len(completed_items)} "
-            "completed items."
-        )
-
-        print(
-            "Removing completed items "
-            "from this run."
-        )
-
-    data = [
-        row
-        for row in data
-        if row["item_number"]
-        not in completed_items
-    ]
 
     if not data:
         print(
@@ -404,7 +172,7 @@ def main():
     messages = construct_messages(
         data,
         prompt_template,
-        args.query_column,
+        user_map={"question": args.query_column},
     )
 
     print(
@@ -415,63 +183,24 @@ def main():
     # -------------------------
     # Generate
     # -------------------------
-
     results = generate(
         messages=messages,
         model=args.model,
         backend=args.backend,
+        vllm_base_url=VLLM_BASE_URL,
         temperature=args.temperature,
         max_tokens=args.max_tokens,
         top_p=args.top_p,
     )
 
     # -------------------------
-    # Build output rows
+    # SAVE
     # -------------------------
+    out_data = [{**row, "answer": result,} for row, result in zip(data, results)]
+    append_jsonl_file(output_path,out_data)    
+    save_args_as_config_json(args,output_path,)
+    print(f"Results saved to {output_path}")
 
-    out_data = [
-        {
-            "item_number": row["item_number"],
-            "module_code": row["module_code"],
-            "grade_span": row["grade_span"],
-            args.query_column: row[
-                args.query_column
-            ],
-            "answer": result,
-        }
-        for row, result in zip(
-            data,
-            results,
-        )
-    ]
-
-    # -------------------------
-    # Append results
-    # -------------------------
-
-    with open(
-        output_path,
-        "a",
-        encoding="utf-8",
-    ) as f:
-        for line in out_data:
-            f.write(
-                json.dumps(
-                    line,
-                    ensure_ascii=False,
-                )
-                + "\n"
-            )
-
-    save_config(
-        args,
-        output_path,
-    )
-
-    print(
-        f"Results saved to "
-        f"{output_path}"
-    )
 
 
 if __name__ == "__main__":
