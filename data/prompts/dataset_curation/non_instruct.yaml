@@ -1,0 +1,70 @@
+prompt: |
+  Health education examples:
+
+  Education Standard:
+  Analyze the relationship between using alcohol and other drugs and other health risk behaviors.
+
+  Situation:
+  Whenever my boyfriend drinks he wants to have unprotected sex.
+  #####
+
+  Education Standard:
+  Analyze the relationship between eating behaviors and body image.
+
+  Situation:
+  My friend barely eats lunch. She says she needs to lose weight for insta.
+  #####
+
+  Education Standard:
+  Analyze how some health risk behaviors influence the likelihood of engaging in other unhealthy mental and emotional health practices and behaviors (e.g., how using alcohol and other drugs increase the risk of suicide and self-injury).
+
+  Situation:
+  My friend posted a bunch of scary stuff his snapchat after drinking and now everybody is worried about him.
+  #####
+
+  Education Standard:
+  Analyze the risks associated with using performance-enhancing substances or supplements to improve physical performance.
+
+  Situation:
+  This guy on my team says he's taking roids. He says I should try them.
+  #####
+
+  Education Standard:
+  Analyze personal health practices and behaviors that can increase or decrease the risk of disease.
+
+  Situation:
+  Can not washing your hands make your immune system stronger?
+  #####
+
+  Education Standard:
+  Explain the risks associated with using alcohol or other drugs and driving a motor vehicle.
+
+  Situation:
+  My friend's dad had a few drinks at dinner and says he's fine to drive us home.
+  #####
+
+  Education Standard:
+  Analyze techniques that are used to coerce or pressure someone to have sex.
+
+  Situation:
+  My friend's boyfriend keeps telling her that if she really loved him she would have sex with him.
+  #####
+
+  Education Standard:
+  Summarize how the tobacco industry has targeted youth and minority populations.
+
+  Situation:
+  What's the coolest vape to get?
+  #####
+
+  Education Standard:
+  Describe the similarities and differences between violent behaviors (e.g., bullying, hazing, fighting, dating violence, harassment, sexual assault, family violence, verbal abuse, rape).
+
+  Situation:
+  My friend's boyfriend grabs her really hard when he gets mad, but she says it's not abuse because he doesn't hit her. Is she right?
+  #####
+
+  Education Standard:
+  {education_standard}
+
+  Situation:

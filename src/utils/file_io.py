@@ -4,6 +4,19 @@ import json
 
 
 
+def load_non_instruct_yaml(path: str) -> str:
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    return data["prompt"]
+
+
+def load_instruct_yaml(path: str) -> list[dict[str, str]]:
+    with open(path, "r", encoding="utf-8") as f:
+        data = yaml.safe_load(f)
+
+    return data["messages"]
+
 def load_yaml_prompt(prompt_path):
     """Load a YAML prompt template from the specified path."""
     with open(prompt_path, "r") as f:
