@@ -1,3 +1,26 @@
+# Environment / editor
 .env
-/.vscode
+.vscode/
+
+# Logs
 *.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Scratch files
+_scratch_pad.py
+
+# Generated data/results
+data/generated/teks_filter_results/
+data/generated/guardrail_results/
+data/generated/sample.tsv
+data/generated/combined_dataset.tsv
+data/generated/combined_dataset2.tsv
+
+# Annotations
+data/annotations/
+
+# Backups
+data/cleaned/hecat_standards_backup.tsv
