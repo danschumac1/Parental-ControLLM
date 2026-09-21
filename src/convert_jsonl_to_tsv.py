@@ -7,7 +7,7 @@ How to run:
 import json
 import csv
 
-JSONL_INPUT_PATH = "./data/generated/answers/gpt-4o-mini.jsonl"
+JSONL_INPUT_PATH = "./data/generated/guardrail_results/gpt-5.4-nano/outputs.jsonl"
 
 def main():
     out_path = JSONL_INPUT_PATH.replace(".jsonl", ".tsv")

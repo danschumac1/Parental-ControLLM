@@ -1,8 +1,14 @@
 import os
 
 from openai import OpenAI
-import dotenv
+from pathlib import Path
+from dotenv import load_dotenv
 from tqdm import tqdm
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+ENV_PATH = ROOT_DIR / "resources" / ".env"
+
+load_dotenv(ENV_PATH, override=True)
 
 def construct_messages(
     data,
@@ -80,9 +86,6 @@ def generate_openai(
     model,
     max_tokens,
 ):
-    dotenv.load_dotenv(
-        "./resources/.env"
-    )
 
     client = OpenAI(
         api_key=os.environ[

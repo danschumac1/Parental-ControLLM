@@ -8,15 +8,31 @@ Examples:
     # Instruct model through OpenAI
     python ./src/prompt_for_situation.py \
         --backend openai \
-        --prompt_type instruct \
-        --model gpt-5-mini
+        --model gpt-5.4-nano
+
+    ######################################
+    # VLLM
+    ######################################
+        # SMALLER
+        ✓ Qwen/Qwen3.5-9B
+        ✓ google/gemma-4-12B-it
+        ✓ ibm-granite/granite-4.2-8b
+        ✓ microsoft/phi-4
+
+
+    # launch the server
+    #  may need VLLM_USE_FLASHINFER_SAMPLER=0 
+    VLLM_USE_FLASHINFER_SAMPLER=0 vllm serve ibm-granite/granite-4.2-8b \
+    --host 127.0.0.1 \
+    --port 8002
+
 
     # Instruct model through vLLM
+    
     python ./src/prompt_for_situation.py \
-        --backend vllm \
-        --prompt_type instruct \
-        --model Qwen/Qwen3-8B \
-        --vllm_base_url http://localhost:8000/v1
+    --backend vllm \
+    --model ibm-granite/granite-4.2-8b\
+    --vllm_base_url http://localhost:8002/v1
 
     # Non-instruct/base model through vLLM
     python ./src/prompt_for_situation.py \
@@ -32,10 +48,9 @@ import os
 
 
 from openai import OpenAI
-
+from dotenv import load_dotenv
 
 from utils.file_io import load_tsv_file, append_jsonl_file, load_instruct_yaml, load_non_instruct_yaml
-
 
 DEFAULT_TEMPERATURE = 0.8
 DEFAULT_MAX_TOKENS = 100
@@ -43,17 +58,13 @@ DEFAULT_TOP_P = 0.95
 DEFAULT_INSTRUCT_PROMPT = "./data/prompts/dataset_curation/instruct.yaml"
 DEFAULT_NON_INSTRUCT_PROMPT = "./data/prompts/dataset_curation/non_instruct.yaml"
 
-
 # ───────────────────────── Arguments ─────────────────────────
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate situations from HECAT education standards."
     )
 
     parser.add_argument("--input_path",default="data/cleaned/hecat_standards.tsv",help="Path to HECAT standards TSV.",)
-    parser.add_argument("--prompt_type",choices=["instruct", "non_instruct"],default="instruct",help="Whether to use the instruct or non-instruct prompt.",)
     parser.add_argument("--backend",choices=["openai", "vllm"],default="vllm",help="LLM backend.",)
     parser.add_argument("--model",required=True,help="Model name.",)
     parser.add_argument("--vllm_base_url",default="http://localhost:8000/v1",help="OpenAI-compatible vLLM endpoint.",)
@@ -64,7 +75,8 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     safe_model_name = args.model.replace("/", "__")
     args.output_path = f"./data/generated/situations/{safe_model_name}.jsonl"
-
+    args.prompt_type = "instruct" # if ("instruct" in args.model.lower().strip()) or ("gpt" in args.model.lower().strip())\
+            # else "non_instruct"
     return args
 
 
@@ -94,15 +106,13 @@ def load_completed_codes(path: str) -> set[str]:
 
 
 # ───────────────────────── Prompting ─────────────────────────
-
-
 def format_instruct_prompt(prompt_data: list[dict], row: dict) -> list[dict]:
     """
     Replace placeholders in each chat message.
     """
 
     education_standard = row["expectation"]
-    grade_range = row.get("grade_span", "")
+    grade_range = row["grade_span"]
 
     messages = []
 
@@ -120,6 +130,7 @@ def format_instruct_prompt(prompt_data: list[dict], row: dict) -> list[dict]:
         )
 
     return messages
+
 
 def format_non_instruct_prompt(prompt_data: str, row: dict) -> str:
     education_standard = row["expectation"]
@@ -157,7 +168,11 @@ def clean_generation(text: str) -> str:
 
 def create_client(args: argparse.Namespace) -> OpenAI:
     if args.backend == "openai":
-        return OpenAI()
+        load_dotenv("./resources/.env")
+        return OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY")
+
+        )
 
     if args.backend == "vllm":
         return OpenAI(
@@ -171,6 +186,7 @@ def create_client(args: argparse.Namespace) -> OpenAI:
 
 
 def generate_instruct(
+    backend: str,
     client: OpenAI,
     model: str,
     messages: list,
@@ -178,13 +194,24 @@ def generate_instruct(
     max_tokens: int,
     top_p: float,
 )-> str:
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p,
-    )
+    
+    assert backend in ["vllm","openai"], "backend must be either vllm or openai"
+    if backend == "vllm":
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+        )
+    else: # backend == "openai"
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_completion_tokens=max_tokens, # thius has to be different!
+            top_p=top_p,
+        )
 
     return response.choices[0].message.content.strip()
 
@@ -272,6 +299,7 @@ def main():
                 )
 
                 generation = generate_instruct(
+                    backend=args.backend,
                     client=client,
                     model=args.model,
                     messages=messages,
@@ -302,7 +330,7 @@ def main():
 
             output_row = {**row, "situation": generation,}
 
-            append_jsonl_file(args.output_path,output_row,)
+            append_jsonl_file(args.output_path,[output_row],)
 
         except Exception as e:
             print(f"ERROR on {code}: {e}")

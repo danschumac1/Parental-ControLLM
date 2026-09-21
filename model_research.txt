@@ -1,0 +1,14 @@
+
+# LARGE AS WE CAN GO
+allenai/Olmo-3.1-32B-Instruct
+google/gemma-4-31B
+Qwen/Qwen3.8-27B
+
+# SMALLER
+✓ Qwen/Qwen3.5-9B
+✓ google/gemma-4-12B
+✓ ibm-granite/granite-4.2-8b
+✓ microsoft/phi-4
+# PROPRIETARY
+
+gpt-5.4-nano

@@ -3,7 +3,6 @@ import yaml
 import json
 
 
-
 def load_non_instruct_yaml(path: str) -> str:
     with open(path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
@@ -31,7 +30,7 @@ def load_yaml_prompts(prompt_types, prompt_folder):
     return prompts
 
 
-def load_single_yaml_prompt(prompt_path):
+def load_single_yaml_prompt(prompt_path) -> dict:
     """Load a single YAML prompt template from the specified path."""
     with open(prompt_path, "r") as f:
         return yaml.safe_load(f)
@@ -56,7 +55,10 @@ def load_jsonl_file(file_path):
 
     
 def append_jsonl_file(file_path, data):
-    """Append a list of dictionaries to a JSONL file."""
+    """Append one dictionary or a list of dictionaries to a JSONL file."""
+
+    if isinstance(data, dict):
+        data = [data]
 
     with open(file_path, "a", encoding="utf-8") as f:
         for entry in data:
@@ -67,7 +69,6 @@ def append_jsonl_file(file_path, data):
                 )
                 + "\n"
             )
-
 
 def save_jsonl_file(file_path, data):
     """Save a list of dictionaries to a JSONL file."""
