@@ -3,14 +3,18 @@ TO RUN: VLLM BACKEND ################################################
     AVAILABLE MODELS:
         ✓ google/gemma-4-12B-it
         ✓ microsoft/phi-4
+        ✓ google/gemma-4-31B-it
     
     # SET UP VLLM SERVER
     # 932374
     nohup env \
         VLLM_USE_FLASHINFER_SAMPLER=0 \
-        vllm serve google/gemma-4-12B-it \
+        CUDA_VISIBLE_DEVICES=1 \
+        VLLM_USE_V2_MODEL_RUNNER=0 \
+        vllm serve google/gemma-4-31B-it \
             --host 127.0.0.1 \
             --port 8002 \
+            --max-model-len 40960 \
         > ./logs/vllm_server.log 2>&1 &
     tail -f ./logs/vllm_server.log 
 
@@ -18,7 +22,7 @@ TO RUN: VLLM BACKEND ################################################
     nohup python ./src/experiments/teks_filter.py \
         --input_data_path ./data/generated/sample.tsv \
         --backend vllm \
-        --model google/gemma-4-12B-it \
+        --model google/gemma-4-31B-it \
         > logs/gemma_teks_filter.log 2>&1 &
 
     tail -f logs/gemma_teks_filter.log
@@ -187,6 +191,7 @@ def main():
 
     for batch_start in range(0, len(remaining_data), args.save_every):
         batch_data = remaining_data[batch_start:batch_start + args.save_every]
+
         messages = build_messages(batch_data, teks_df, prompt_template)
 
         if not example_printed:
