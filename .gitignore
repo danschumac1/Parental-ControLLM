@@ -15,6 +15,7 @@ _scratch_pad.py
 # Generated data/results
 data/generated/teks_filter_results/
 data/generated/guardrail_results/
+data/generated/answers
 data/generated/sample.tsv
 data/generated/combined_dataset.tsv
 data/generated/combined_dataset2.tsv
