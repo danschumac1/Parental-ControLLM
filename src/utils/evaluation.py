@@ -169,7 +169,9 @@ def print_evaluation(
     print(f"Accuracy:   {metrics['accuracy']:.4f}")
     print(f"Precision:  {metrics['precision']:.4f}")
     print(f"Recall:     {metrics['recall']:.4f}")
-    print(f"F1:         {metrics['f1']:.4f}")
+    print(f"Refusal F1: {metrics['refusal_f1']:.4f}")
+    print(f"Allow F1:   {metrics['allow_f1']:.4f}")
+    print(f"Macro F1:   {metrics['macro_f1']:.4f}")
 
 
 # ---------------------------------------------------------

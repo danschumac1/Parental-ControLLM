@@ -12,3 +12,10 @@ Qwen/Qwen3.8-27B
 # PROPRIETARY
 
 gpt-5.4-nano
+
+
+
+conda activate parentalEnv
+conda install -c conda-forge cuda-compat=12.9
+export VLLM_ENABLE_CUDA_COMPATIBILITY=1
+export VLLM_CUDA_COMPATIBILITY_PATH="${CONDA_PREFIX}/cuda-compat"
