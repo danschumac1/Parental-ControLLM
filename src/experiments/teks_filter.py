@@ -20,7 +20,7 @@ TO RUN: VLLM BACKEND ################################################
 
     nohup env \
         VLLM_USE_FLASHINFER_SAMPLER=0 \
-        vllm serve microsoft/phi-4 \
+        vllm serve Qwen/Qwen3.5-9B \
             --host 127.0.0.1 \
             --port 8002 \
         > ./logs/vllm_server.log 2>&1 &
@@ -30,7 +30,8 @@ TO RUN: VLLM BACKEND ################################################
     nohup python ./src/experiments/teks_filter.py \
         --input_data_path ./data/generated/sample.tsv \
         --backend vllm \
-        --model google/gemma-4-31B-it \
+        --model Qwen/Qwen3.5-9B \
+        --save_every 1 \
         > logs/gemma_teks_filter.log 2>&1 &
 
     tail -f logs/gemma_teks_filter.log

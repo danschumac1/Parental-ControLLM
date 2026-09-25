@@ -60,6 +60,12 @@ def generate_vllm(vllm_base_url, messages, model, temperature, max_tokens, top_p
             temperature=temperature,
             max_tokens=max_tokens,
             top_p=top_p,
+                extra_body={
+                    "chat_template_kwargs": {
+                        "enable_thinking": False
+                    }
+                }
+
         )
 
         results.append(response.choices[0].message.content.strip())
