@@ -1,0 +1,9 @@
+Large server
+pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 \
+    --index-url https://download.pytorch.org/whl/cu124
+
+pip install vllm==0.8.5
+pip install --force-reinstall \
+    "transformers==4.51.3" \
+    "tokenizers==0.21.1"
+pip install --force-reinstall "numpy==2.2.6"

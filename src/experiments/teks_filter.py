@@ -1,4 +1,5 @@
 '''
+1462026
 TO RUN: VLLM BACKEND ################################################
     AVAILABLE MODELS:
         ✓ google/gemma-4-12B-it
@@ -9,14 +10,27 @@ TO RUN: VLLM BACKEND ################################################
     # 932374
     nohup env \
         VLLM_USE_FLASHINFER_SAMPLER=0 \
-        CUDA_VISIBLE_DEVICES=1 \
+        CUDA_VISIBLE_DEVICES=2,3 \
         VLLM_USE_V2_MODEL_RUNNER=0 \
-        vllm serve microsoft/phi-4 \
+        vllm serve google/gemma-4-31B-it \
             --host 127.0.0.1 \
             --port 8002 \
             --max-model-len 40960 \
         > ./logs/vllm_server.log 2>&1 &
     tail -f ./logs/vllm_server.log 
+
+
+    nohup env \
+    CUDA_VISIBLE_DEVICES=2,3 \
+    vllm serve meta-llama/Llama-3.3-70B-Instruct \
+    --host 127.0.0.1 \
+    --port 8002 \
+    --tensor-parallel-size 2 \
+    --max-model-len 65536 \
+        > ./logs/vllm_server.log 2>&1 &
+    tail -f ./logs/vllm_server.log
+    
+    
 
     nohup env \
         VLLM_USE_FLASHINFER_SAMPLER=0 \
@@ -30,11 +44,11 @@ TO RUN: VLLM BACKEND ################################################
     nohup python ./src/experiments/teks_filter.py \
         --input_data_path ./data/generated/sample.tsv \
         --backend vllm \
-        --model Qwen/Qwen3.5-9B \
+        --model meta-llama/Llama-3.3-70B-Instruct\
         --save_every 1 \
-        > logs/gemma_teks_filter.log 2>&1 &
+        > logs/Llama_teks_filter.log 2>&1 &
 
-    tail -f logs/gemma_teks_filter.log
+    tail -f logs/Llama_teks_filter.log
 
     
 TO RUN: OPEN AI BACKEND #############################################
