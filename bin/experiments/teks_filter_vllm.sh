@@ -1,11 +1,11 @@
 #!/bin/bash
-# 47432
+# 63199
 # chmod +x ./bin/experiments/teks_filter_vllm.sh
 # Usage: ./bin/experiments/teks_filter_vllm.sh
 # Background: nohup ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_vllm.log 2>&1 &
 # Monitor: tail -f ./logs/teks_filter_vllm.log
 '''
-40499
+4139
 nohup env \
     CUDA_VISIBLE_DEVICES=0,1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
@@ -18,6 +18,9 @@ nohup env \
         --max-num-seqs 16 \
         --gpu-memory-utilization 0.90 \
     > ./logs/vllm_server.log 2>&1 &
+
+tail -f ./logs/vllm_server.log
+
 '''
 # -------------------------
 # BACKEND & MODELS
