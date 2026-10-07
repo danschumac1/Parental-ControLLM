@@ -9,13 +9,9 @@
 nohup env \
     CUDA_VISIBLE_DEVICES=0,1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
-    vllm serve google/gemma-4-31B-it \
+    vllm serve Qwen/Qwen3.5-4B \
         --host 127.0.0.1 \
         --port 8002 \
-        --tensor-parallel-size 2 \
-        --max-model-len 40960 \
-        --max-num-batched-tokens 8192 \
-        --max-num-seqs 16 \
         --gpu-memory-utilization 0.90 \
     > ./logs/vllm_server.log 2>&1 &
 
@@ -30,7 +26,8 @@ BACKEND="vllm"
 
 MODELS=(
     # "google/gemma-4-12B-it"
-    "google/gemma-4-31B-it"
+    # "google/gemma-4-31B-it"
+    Qwen/Qwen3.5-4B
     # "microsoft/phi-4"
     # "Qwen/Qwen3.5-9B"
     # "meta-llama/Llama-3.3-70B-Instruct"
