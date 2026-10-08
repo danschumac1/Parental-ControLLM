@@ -52,21 +52,23 @@ def generate_openai(messages, model, max_tokens):
 def generate_vllm(vllm_base_url, messages, model, temperature, max_tokens, top_p):
     client = OpenAI(api_key="EMPTY", base_url=vllm_base_url)
     results = []
+    extra_body = {}
+
+    if "mistral" not in model.lower():
+        extra_body["chat_template_kwargs"] = {
+            "enable_thinking": False
+        }
+
 
     for prompt in tqdm(messages):
         response = client.chat.completions.create(
-            model=model,
-            messages=prompt,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            top_p=top_p,
-                extra_body={
-                    "chat_template_kwargs": {
-                        "enable_thinking": False
-                    }
-                }
-
-        )
+        model=model,
+        messages=prompt,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        extra_body=extra_body,
+        top_p=top_p
+    )
 
         results.append(response.choices[0].message.content.strip())
 
