@@ -77,3 +77,79 @@ Traceback (most recent call last):
     return self._sock.recv(max_bytes)
            ^^^^^^^^^^^^^^^^^^^^^^^^^^
 KeyboardInterrupt
+Traceback (most recent call last):
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 441, in __str__
+    return self._str
+           ^^^^^^^^^
+AttributeError: 'PosixPath' object has no attribute '_str'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dan/miniconda3/envs/parentalEnv/bin/vllm", line 10, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/entrypoints/cli/main.py", line 43, in main
+    import vllm.entrypoints.cli.benchmark.main
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/entrypoints/cli/benchmark/main.py", line 12, in <module>
+    from vllm.entrypoints.serve.utils.api_utils import VLLM_SUBCMD_PARSER_EPILOG
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/entrypoints/serve/utils/api_utils.py", line 19, in <module>
+    from vllm.engine.arg_utils import EngineArgs
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/engine/arg_utils.py", line 36, in <module>
+    from vllm.config import (
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/config/__init__.py", line 24, in <module>
+    from vllm.config.model import (
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/config/model.py", line 25, in <module>
+    from vllm.config.quantization import QuantizationConfigArgs
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/config/quantization.py", line 17, in <module>
+    from vllm.model_executor.layers.quantization.utils.quant_utils import (
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/model_executor/layers/quantization/__init__.py", line 7, in <module>
+    from vllm.model_executor.layers.quantization.base_config import (
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/vllm/model_executor/layers/quantization/base_config.py", line 11, in <module>
+    from transformers import PretrainedConfig
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/__init__.py", line 30, in <module>
+    from . import dependency_versions_check
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/dependency_versions_check.py", line 16, in <module>
+    from .utils.versions import require_version, require_version_core
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/utils/__init__.py", line 22, in <module>
+    from .auto_docstring import (
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/utils/auto_docstring.py", line 33, in <module>
+    from .generic import ModelOutput
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/utils/generic.py", line 39, in <module>
+    from .import_utils import is_mlx_available, is_torch_available, is_torch_fx_proxy, resolve_internal_import
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/site-packages/transformers/utils/import_utils.py", line 51, in <module>
+    PACKAGE_DISTRIBUTION_MAPPING = importlib.metadata.packages_distributions()
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/__init__.py", line 947, in packages_distributions
+    for pkg in _top_level_declared(dist) or _top_level_inferred(dist):
+                                            ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/__init__.py", line 959, in _top_level_inferred
+    for f in always_iterable(dist.files)
+                             ^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/__init__.py", line 500, in files
+    return skip_missing_files(
+           ^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/_functools.py", line 102, in wrapper
+    return func(param, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/__init__.py", line 498, in skip_missing_files
+    return list(filter(lambda path: path.locate().exists(), package_paths))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/importlib/metadata/__init__.py", line 498, in <lambda>
+    return list(filter(lambda path: path.locate().exists(), package_paths))
+                                    ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 860, in exists
+    self.stat(follow_symlinks=follow_symlinks)
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 840, in stat
+    return os.stat(self, follow_symlinks=follow_symlinks)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 448, in __fspath__
+    return str(self)
+           ^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 444, in __str__
+    self._tail) or '.'
+    ^^^^^^^^^^
+  File "/home/dan/miniconda3/envs/parentalEnv/lib/python3.12/pathlib.py", line 569, in _tail
+    @property
+
+KeyboardInterrupt

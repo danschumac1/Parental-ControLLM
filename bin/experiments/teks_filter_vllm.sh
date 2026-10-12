@@ -1,6 +1,6 @@
 #!/bin/bash
-# 2633950
-# 2632806
+# 407161
+# 408783
 # chmod +x ./bin/experiments/teks_filter_vllm.sh
 # Usage: ./bin/experiments/teks_filter_vllm.sh
 # Background: nohup ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_vllm.log 2>&1 &
@@ -18,16 +18,20 @@ nohup env \
 
 tail -f ./logs/vllm_server.log
 
+
+        --enforce-eager \
+        --linear-backend marlin \
+
+
 nohup env \
-    CUDA_VISIBLE_DEVICES=0 \
+    CUDA_VISIBLE_DEVICES=0,1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
-    vllm serve mistralai/Ministral-3-14B-Instruct-2512 \
+    vllm serve google/gemma-4-31B-it \
         --host 127.0.0.1 \
         --port 8002 \
         --gpu-memory-utilization 0.90 \
         --max-model-len 65536 \
-        --enforce-eager \
-        --linear-backend marlin \
+        --tensor-parallel-size 2 \
     > ./logs/vllm_server.log 2>&1 &
     
 tail -f ./logs/vllm_server.log
@@ -41,9 +45,9 @@ BACKEND="vllm"
 
 MODELS=(
     # "google/gemma-4-12B-it"
-    # "google/gemma-4-31B-it"
+    "google/gemma-4-31B-it"
     # Qwen/Qwen3.5-4B
-    "mistralai/Ministral-3-14B-Instruct-2512"
+    # "mistralai/Ministral-3-14B-Instruct-2512"
     # "microsoft/phi-4"
     # "Qwen/Qwen3.5-9B"
     # "meta-llama/Llama-3.3-70B-Instruct"
