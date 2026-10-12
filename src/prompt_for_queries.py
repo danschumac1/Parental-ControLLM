@@ -60,49 +60,97 @@ DEFAULT_NON_INSTRUCT_PROMPT = "./data/prompts/dataset_curation/non_instruct.yaml
 
 # ───────────────────────── Arguments ─────────────────────────
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Generate situations from HECAT education standards."
-    )
+    parser = argparse.ArgumentParser(description="Generate situations or educational questions from HECAT standards.")
+    parser.add_argument("--input_path", default="data/cleaned/hecat_standards.tsv")
+    parser.add_argument("--generation_type", choices=["situation_generation", "eduQ_generation"], default="situation_generation")
+    parser.add_argument("--prompt_type", choices=["instruct", "non_instruct"], default="instruct")
+    parser.add_argument("--backend", choices=["openai", "vllm"], default="vllm")
+    parser.add_argument("--model", required=True)
+    parser.add_argument("--vllm_base_url", default="http://localhost:8000/v1")
+    parser.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE)
+    parser.add_argument("--max_tokens", type=int, default=DEFAULT_MAX_TOKENS)
+    parser.add_argument("--top_p", type=float, default=DEFAULT_TOP_P)
+    parser.add_argument("--limit", type=int, default=None)
 
-    parser.add_argument("--input_path",default="data/cleaned/hecat_standards.tsv",help="Path to HECAT standards TSV.",)
-    parser.add_argument("--backend",choices=["openai", "vllm"],default="vllm",help="LLM backend.",)
-    parser.add_argument("--model",required=True,help="Model name.",)
-    parser.add_argument("--vllm_base_url",default="http://localhost:8000/v1",help="OpenAI-compatible vLLM endpoint.",)
-    parser.add_argument("--temperature",type=float,default=DEFAULT_TEMPERATURE,)
-    parser.add_argument("--max_tokens",type=int,default=DEFAULT_MAX_TOKENS,)
-    parser.add_argument("--top_p",type=float,default=DEFAULT_TOP_P,)
-    parser.add_argument("--limit",type=int,default=None,help="Optional number of rows to process.",)
     args = parser.parse_args()
     safe_model_name = args.model.replace("/", "__")
-    args.output_path = f"./data/generated/situations/{safe_model_name}.jsonl"
-    args.prompt_type = "instruct" # if ("instruct" in args.model.lower().strip()) or ("gpt" in args.model.lower().strip())\
-            # else "non_instruct"
+    args.output_path = f"./data/generated/{args.generation_type}/{safe_model_name}.jsonl"
+    args.prompt_folder = f"./data/prompts/{args.generation_type}"
+    args.prompt_path = f"{args.prompt_folder}/{args.prompt_type}.yaml"
+    args.output_column = args.generation_type.split("_")[0]
+
+    if not os.path.isfile(args.prompt_path):
+        parser.error(f"Prompt file does not exist: {args.prompt_path}")
+
     return args
 
 
-def load_completed_codes(path: str) -> set[str]:
+def load_existing_outputs(path: str) -> dict[str, dict]:
     """
-    Read existing output so interrupted runs can resume.
+    Load existing generations keyed by standard code.
     """
 
     if not os.path.exists(path):
-        return set()
+        return {}
 
-    completed = set()
+    outputs = {}
 
     with open(path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-
-            if not line:
+        for line_number, line in enumerate(f, start=1):
+            if not line.strip():
                 continue
 
             row = json.loads(line)
 
-            if row.get("code"):
-                completed.add(row["code"])
+            code = row.get("code")
+            if not code:
+                raise ValueError(
+                    f"Missing code at line {line_number}: {path}"
+                )
 
-    return completed
+            if code in outputs:
+                raise ValueError(
+                    f"Duplicate code {code} in {path}"
+                )
+
+            outputs[code] = row
+
+    return outputs
+
+
+from pathlib import Path
+import tempfile
+
+
+def save_outputs(path: str, outputs: dict[str, dict]) -> None:
+    """
+    Atomically rewrite the JSONL file, preserving existing
+    columns and adding new generations.
+    """
+
+    output_path = Path(path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    temp_path = None
+
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w",
+            encoding="utf-8",
+            dir=output_path.parent,
+            suffix=".tmp",
+            delete=False,
+        ) as f:
+            temp_path = Path(f.name)
+
+            for row in outputs.values():
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+        os.replace(temp_path, output_path)
+
+    finally:
+        if temp_path is not None and temp_path.exists():
+            temp_path.unlink()
 
 
 # ───────────────────────── Prompting ─────────────────────────
@@ -239,60 +287,65 @@ def generate_non_instruct(
 # ─────────────────────────── Main ─────────────────────────────
 
 
+
 def main():
     args = parse_args()
 
-    # Choose prompt file automatically if one wasn't supplied.
-    if args.prompt_type == "instruct":
-        args.prompt_path = DEFAULT_INSTRUCT_PROMPT
-    else:
-        args.prompt_path = DEFAULT_NON_INSTRUCT_PROMPT
-
     print("Loading data...")
     rows = load_tsv_file(args.input_path)
-
-    print(f"Loaded {len(rows)} standards.")
+    original_count = len(rows)
+    rows = list({(row["code"], row["expectation"]): row for row in reversed(rows)}.values())
+    rows.reverse()
+    print(f"Removed {original_count - len(rows)} identical standards.")    
 
     if args.prompt_type == "instruct":
         prompt_data = load_instruct_yaml(args.prompt_path)
     else:
         prompt_data = load_non_instruct_yaml(args.prompt_path)
 
-    completed_codes = load_completed_codes(
-        args.output_path
-    )
+    # Load previous generations for this model.
+    existing_outputs = load_existing_outputs(args.output_path)
 
-    if completed_codes:
-        print(f"Found {len(completed_codes)} previously completed standards.")
+    print(f"Loaded {len(existing_outputs)} existing output rows.")
 
-    rows = [ row for row in rows if row.get("code") not in completed_codes ]
+    # Only skip standards that already have the requested column.
+    remaining_rows = []
+
+    for row in rows:
+        code = row["code"]
+        existing = existing_outputs.get(code, {})
+
+        value = existing.get(args.output_column)
+
+        if isinstance(value, str) and value.strip():
+            continue
+
+        remaining_rows.append(row)
 
     if args.limit is not None:
-        rows = rows[: args.limit]
+        remaining_rows = remaining_rows[:args.limit]
 
-    print(f"{len(rows)} standards remaining.")
+    print(
+        f"{len(remaining_rows)} standards remaining "
+        f"for {args.output_column}."
+    )
+
+    if not remaining_rows:
+        print("Nothing to generate.")
+        return
 
     client = create_client(args)
 
-    # ───────────────── Process standards ─────────────────
-
-    for i, row in enumerate(rows, start=1):
-
-        code = row.get("code", "UNKNOWN")
+    for i, row in enumerate(remaining_rows, start=1):
+        code = row["code"]
         expectation = row.get("expectation", "")
 
         print()
-        print(
-            f"[{i}/{len(rows)}] {code}"
-        )
-        print(
-            f"Standard: {expectation}"
-        )
+        print(f"[{i}/{len(remaining_rows)}] {code}")
+        print(f"Standard: {expectation}")
 
         try:
-
             if args.prompt_type == "instruct":
-
                 messages = format_instruct_prompt(
                     prompt_data,
                     row,
@@ -309,7 +362,6 @@ def main():
                 )
 
             else:
-
                 prompt = format_non_instruct_prompt(
                     prompt_data,
                     row,
@@ -326,11 +378,25 @@ def main():
 
             generation = clean_generation(generation)
 
-            print(f"Situation: {generation}")
+            if not generation:
+                print(f"WARNING: Empty generation for {code}.")
+                continue
 
-            output_row = {**row, "situation": generation,}
+            print(f"{args.output_column}: {generation}")
 
-            append_jsonl_file(args.output_path,[output_row],)
+            # Preserve existing generations and metadata.
+            existing_row = existing_outputs.get(code, {})
+
+            output_row = {
+                **row,
+                **existing_row,
+                args.output_column: generation,
+            }
+
+            existing_outputs[code] = output_row
+
+            # Save after each successful generation.
+            save_outputs(args.output_path, existing_outputs)
 
         except Exception as e:
             print(f"ERROR on {code}: {e}")
@@ -338,5 +404,7 @@ def main():
     print()
     print("Done.")
     print(f"Output: {args.output_path}")
+
+
 if __name__ == "__main__":
     main()

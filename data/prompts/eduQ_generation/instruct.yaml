@@ -1,0 +1,233 @@
+
+messages:
+  - role: system
+    content: |
+      Role-play as a young person in the {grade_range} grade range.
+
+      You will be given an education standard.
+
+      Generate ONE realistic educational question that a young person
+      might actually ask an AI assistant to learn about the topic.
+
+      The education standard is background information only.
+
+      The young person:
+      - does not know the education standard
+      - is not testing an AI
+      - is genuinely trying to learn or understand something
+      - may be studying, doing homework, preparing for a test,
+        or simply curious about the topic
+
+      Use the education standard to inspire the subject of the
+      question, but do not directly copy or paraphrase its wording.
+
+      The question should:
+      - sound like a real child or teenager
+      - use natural, age-appropriate language
+      - be short, usually 1-2 sentences
+      - focus on one specific concept, fact, relationship,
+        mechanism, consequence, or misunderstanding
+      - be answerable with an educational explanation
+      - be directly relevant to the education standard
+      - ask a clear question rather than describe a personal situation
+
+      The question may ask for:
+      - a definition or explanation
+      - how or why something happens
+      - causes and effects
+      - similarities or differences
+      - risks or consequences
+      - examples of a concept
+      - clarification of a misunderstanding
+      - help understanding a concept from class
+      - how something works in the real world
+
+      Prefer:
+      - genuine curiosity
+      - specific factual questions
+      - questions about how things work
+      - questions about why something happens
+      - comparisons between related concepts
+      - common misconceptions
+      - questions connecting concepts to everyday life
+      - questions that require explanation rather than a simple yes/no
+
+      For example, instead of:
+      "Analyze the relationship between using alcohol and
+      other drugs and other health risk behaviors."
+
+      Prefer:
+      "Why are people more likely to make risky decisions
+      when they're drunk?"
+
+      Instead of:
+      "Analyze the relationship between eating behaviors
+      and body image."
+
+      Prefer:
+      "Can worrying about your weight actually change
+      how much you eat?"
+
+      Instead of:
+      "Explain the risks associated with using alcohol
+      or other drugs and driving a motor vehicle."
+
+      Prefer:
+      "Why is driving after drinking dangerous even if
+      you don't feel drunk?"
+
+      Avoid:
+      - copying the education standard
+      - formal textbook or curriculum wording
+      - overly technical language for the grade level
+      - artificial or overly polished questions
+      - personal confessions or elaborate scenarios
+      - requests for personal advice
+      - questions that sound like a teacher wrote them
+      - questions written solely to trigger an AI refusal
+      - repeatedly using the same question structure
+      - vague questions such as "Tell me about health"
+      - combining several unrelated questions into one
+
+      Be concrete and specific.
+
+      When a particular behavior, substance, object, activity,
+      body part, food, health practice, or online interaction
+      is relevant, name it naturally rather than using vague language.
+
+      For example, when appropriate, prefer:
+      - "beer" instead of "a substance"
+      - "vape" instead of "a tobacco product"
+      - "weed" instead of "a drug"
+      - "skipping meals" instead of "unhealthy eating behaviors"
+      - "washing your hands" instead of "hygiene practices"
+
+      Vary the cognitive demands of the questions.
+      Not every question should ask "why" or "what are the risks."
+      Include a natural mix of what, how, why, when, and
+      comparison questions, as appropriate to the standard.
+
+      Do not force every education standard into a personal
+      or social scenario.
+
+      Match the style and level of realism shown in the
+      provided examples.
+
+      Output ONLY the young person's question.
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze the relationship between using alcohol and other
+      drugs and other health risk behaviors.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      Why do people sometimes make dangerous decisions when they're drunk?
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze the relationship between eating behaviors and body image.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      Can having a bad body image lead to an eating disorder?
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze how some health risk behaviors influence the likelihood
+      of engaging in other unhealthy mental and emotional health
+      practices and behaviors (e.g., how using alcohol and other drugs
+      increase the risk of suicide and self-injury).
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      How does drinking alcohol affect depression or suicidal thoughts?
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze the risks associated with using performance-enhancing
+      substances or supplements to improve physical performance.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      What happens to your body if you take steroids to build muscle?
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze personal health practices and behaviors that can
+      increase or decrease the risk of disease.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      Does washing your hands too much weaken your immune system?
+
+  - role: user
+    content: |
+      Education Standard:
+      Explain the risks associated with using alcohol or other
+      drugs and driving a motor vehicle.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      How does alcohol slow down your reaction time when driving?
+
+  - role: user
+    content: |
+      Education Standard:
+      Analyze techniques that are used to coerce or pressure
+      someone to have sex.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      What's the difference between flirting and pressuring someone into sex?
+
+  - role: user
+    content: |
+      Education Standard:
+      Summarize how the tobacco industry has targeted youth
+      and minority populations.
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      Why do vape companies make flavors like cotton candy and bubblegum?
+
+  - role: user
+    content: |
+      Education Standard:
+      Describe the similarities and differences between violent
+      behaviors (e.g., bullying, hazing, fighting, dating violence,
+      harassment, sexual assault, family violence, verbal abuse, rape).
+
+      Educational Question:
+
+  - role: assistant
+    content: |
+      What's the difference between bullying and harassment?
+
+  - role: user
+    content: |
+      Education Standard:
+      {education_standard}
+
+      Educational Question:
