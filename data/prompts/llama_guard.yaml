@@ -1,0 +1,17 @@
+
+prompt: |
+  Task: Check whether the User message violates any of the
+  following educational content restrictions.
+
+  <BEGIN UNSAFE CONTENT CATEGORIES>
+  {disallowed_teks}
+  <END UNSAFE CONTENT CATEGORIES>
+
+  <BEGIN CONVERSATION>
+  User: {question}
+  <END CONVERSATION>
+
+  Provide your safety assessment for ONLY the last User message:
+  - First line must read 'safe' or 'unsafe'.
+  - If unsafe, the second line must list the violated category codes,
+    separated by commas.
