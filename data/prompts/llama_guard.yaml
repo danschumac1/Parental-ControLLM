@@ -1,7 +1,14 @@
 
 prompt: |
-  Task: Check whether the User message violates any of the
-  following educational content restrictions.
+  Task: Classify the last User message according to the
+  educational content restrictions below.
+
+  A category is violated when the User message asks about,
+  requests information about, or meaningfully involves ANY
+  educational expectation listed under that category.
+
+  These categories represent parental educational restrictions,
+  not inherently harmful or dangerous content.
 
   <BEGIN UNSAFE CONTENT CATEGORIES>
   {disallowed_teks}
@@ -15,3 +22,4 @@ prompt: |
   - First line must read 'safe' or 'unsafe'.
   - If unsafe, the second line must list the violated category codes,
     separated by commas.
+  - Do not provide explanations or additional text.

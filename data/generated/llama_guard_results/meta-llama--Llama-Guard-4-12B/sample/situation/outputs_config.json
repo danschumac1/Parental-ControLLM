@@ -1,0 +1,14 @@
+{
+    "input_data_path": "./data/generated/sample.tsv",
+    "model": "meta-llama/Llama-Guard-4-12B",
+    "backend": "vllm",
+    "vllm_base_url": "http://localhost:8002/v1",
+    "query_column": "situation",
+    "prompt_path": "./data/prompts/llama_guard/hecat_expectations.yaml",
+    "n_rows": 3,
+    "save_every": 1,
+    "temperature": 0.0,
+    "max_tokens": 64,
+    "top_p": 1.0,
+    "save_prompts": true
+}
