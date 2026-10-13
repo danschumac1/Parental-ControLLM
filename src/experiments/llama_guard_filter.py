@@ -1,17 +1,23 @@
-"""Classify student queries with Llama Guard 4, full HECAT policies, and Transformers.
+"""
+Classify student queries with Llama Guard 4 using full HECAT policies.
 
-Run from the project root:
-    CUDA_VISIBLE_DEVICES=0 python ./src/experiments/llama_guard_filter.py \
-        --input_data_path ./data/generated/sample.tsv --n_rows 3 --save_every 1
+Run from project root:
+CUDA_VISIBLE_DEVICES=0 python ./src/experiments/llama_guard_filter.py \
+    --input_data_path ./data/generated/sample.tsv \
+    --save_every 1 --max_retries 3
 
-Uses the verified Transformers workaround: attention_chunk_size=8192,
-SDPA attention, typed text content blocks, and use_cache=False.
+Outputs:
+data/generated/llama_guard_results/<model>/
+    outputs.jsonl
+    outputs_config.json
+    eval.json
+    example_prompt.txt
+
+Uses Transformers with attention_chunk_size=8192, SDPA,
+typed text content blocks, and use_cache=False.
 """
 import sys; sys.path.append('./src')
-import os
-import json
 import time
-import hashlib
 import argparse
 from pathlib import Path
 import pandas as pd
@@ -45,8 +51,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument('--query_column', default='situation')
     p.add_argument('--prompt_path', default=PROMPT_PATH)
     p.add_argument('--n_rows', type=int, default=-1)
-    p.add_argument('--save_every', type=int, default=5, help='Save frequency; inference is sequential to conserve VRAM')
+    p.add_argument('--save_every', type=int, default=1)
     p.add_argument('--max_tokens', type=int, default=32)
+    p.add_argument('--max_retries', type=int, default=3)
     p.add_argument('--attention_chunk_size', type=int, default=8192)
     p.add_argument('--save_prompts', action=argparse.BooleanOptionalAction, default=True)
     return p.parse_args()
@@ -58,6 +65,7 @@ def build_prompt(row: dict, teks_df: pd.DataFrame, template: dict, query_column:
     unknown = blocked - ALL_CATS.keys()
     if unknown:
         raise ValueError(f'Unknown blocked categories: {unknown}')
+
     disallowed = teks_df.loc[
         teks_df['module_code'].isin(blocked) | (teks_df['grade_code'] > pretend_age)
     ]
@@ -65,6 +73,7 @@ def build_prompt(row: dict, teks_df: pd.DataFrame, template: dict, query_column:
     for code, group in disallowed.groupby('module_code', sort=True):
         expectations = '\n'.join(f'- {x}' for x in group['expectation'].drop_duplicates())
         parts.append(f'{code}: {ALL_CATS[code]}.\nRestricted expectations:\n{expectations}')
+
     text = '\n\n'.join(parts) if parts else 'None'
     prompt = template['prompt'].format(disallowed_teks=text, question=row[query_column])
     return prompt, sorted(disallowed['module_code'].unique().tolist())
@@ -74,16 +83,20 @@ def parse_guard_output(generation: str, offered_categories: list[str]) -> tuple[
     lines = [line.strip() for line in generation.strip().splitlines() if line.strip()]
     if not lines or lines[0].lower() not in ('safe', 'unsafe'):
         raise ValueError(f'Unexpected Llama Guard output: {generation!r}')
+
     unsafe = lines[0].lower() == 'unsafe'
     if not unsafe:
         if len(lines) != 1:
             raise ValueError(f'Unexpected extra text after safe: {generation!r}')
         return False, []
+
     if len(lines) != 2:
         raise ValueError(f'Unsafe output must include category codes: {generation!r}')
+
     cats = [x.strip().upper() for x in lines[1].split(',')]
     if not cats or any(x not in offered_categories for x in cats):
         raise ValueError(f'Invalid categories in Llama Guard output: {generation!r}')
+
     return True, sorted(set(cats))
 
 
@@ -95,7 +108,7 @@ def load_existing_outputs(path: Path) -> dict[str, dict]:
         for line_num, line in enumerate(f, 1):
             if not line.strip():
                 continue
-            row = json.loads(line)
+            row = __import__('json').loads(line)
             if 'id' not in row or row['id'] in outputs:
                 raise ValueError(f'Missing/duplicate ID in {path}, line {line_num}')
             outputs[row['id']] = row
@@ -131,28 +144,50 @@ def classify(prompt: str, processor, model, max_tokens: int) -> tuple[str, int, 
     n_tokens = inputs['input_ids'].shape[-1]
     start = time.perf_counter()
     with torch.inference_mode():
-        outputs = model.generate(**inputs, max_new_tokens=max_tokens, do_sample=False, use_cache=False)
+        outputs = model.generate(
+            **inputs, max_new_tokens=max_tokens,
+            do_sample=False, use_cache=False
+        )
     elapsed = time.perf_counter() - start
     output = processor.decode(outputs[0][n_tokens:], skip_special_tokens=True)
     del outputs, inputs
     return output, n_tokens, elapsed
 
 
+def classify_with_retries(prompt: str, offered: list[str], processor, model,
+                          max_tokens: int, max_retries: int, row_id: str):
+    total_latency = 0.0
+    for attempt in range(1, max_retries + 1):
+        generation, prompt_tokens, latency = classify(prompt, processor, model, max_tokens)
+        total_latency += latency
+        try:
+            refusal_pred, violated = parse_guard_output(generation, offered)
+            return generation, prompt_tokens, total_latency, refusal_pred, violated, attempt
+        except ValueError as e:
+            print(f'INVALID | {row_id} | attempt {attempt}/{max_retries} | {e}', flush=True)
+
+    print(f'SKIPPING | {row_id} | Failed after {max_retries} attempts.', flush=True)
+    return None
+
+
 def main():
     args = parse_args()
-    if args.save_every < 1 or args.max_tokens < 1 or args.attention_chunk_size < 1:
-        raise ValueError('--save_every, --max_tokens, and --attention_chunk_size must be positive')
+    if min(args.save_every, args.max_tokens, args.max_retries, args.attention_chunk_size) < 1:
+        raise ValueError('--save_every, --max_tokens, --max_retries, and --attention_chunk_size must be positive')
+
     data = load_tsv_file(args.input_data_path)
     if args.n_rows > 0:
         data = data[:args.n_rows]
     if not data:
         print('No rows found.')
         return
+
     required = {'id', args.query_column, 'pretend_age', 'blocked_cats', 'refusal_gt'}
     for i, row in enumerate(data, 1):
         missing = required - row.keys()
         if missing:
             raise ValueError(f'Row {i} missing fields: {missing}')
+
     ids = [row['id'] for row in data]
     if len(ids) != len(set(ids)):
         raise ValueError('Duplicate input IDs')
@@ -162,77 +197,103 @@ def main():
     teks_df['module_code'] = teks_df['module_code'].astype(str).str.strip()
     if set(teks_df['module_code']) - ALL_CATS.keys():
         raise ValueError('Unknown HECAT module(s)')
+
     template = load_single_yaml_prompt(args.prompt_path)
     if 'prompt' not in template:
         raise ValueError(f'Prompt YAML must contain a "prompt" field: {args.prompt_path}')
 
     safe_model = args.model.replace('/', '--')
-    dataset_name = Path(args.input_data_path).stem
-    run_dir = Path(OUTPUT_DIR) / safe_model / Path(args.input_data_path).stem
+    run_dir = Path(OUTPUT_DIR) / safe_model
     run_dir.mkdir(parents=True, exist_ok=True)
     output_path = run_dir / 'outputs.jsonl'
     eval_path = run_dir / 'eval.json'
-    prompt_dir = run_dir / 'prompts'
+    example_prompt_path = run_dir / 'example_prompt.txt'
+
     existing = load_existing_outputs(output_path)
     selected = set(ids)
     completed = {k: v for k, v in existing.items() if k in selected}
     remaining = [r for r in data if r['id'] not in completed]
-    if existing and any('refusal_pred' not in r for r in completed.values()):
+
+    if any('refusal_pred' not in r for r in completed.values()):
         raise ValueError('Existing output is missing classifier results')
     if not existing:
         save_args_as_config_json(args, str(output_path))
+
     print(f'Loaded: {len(data)} | Completed: {len(completed)} | Remaining: {len(remaining)}', flush=True)
 
     processor = model = None
     if any(build_prompt(row, teks_df, template, args.query_column)[1] for row in remaining):
         processor, model = load_model(args.model, args.attention_chunk_size)
 
+    skipped = 0
     for start in range(0, len(remaining), args.save_every):
         batch = remaining[start:start + args.save_every]
         batch_output = []
+
         for row in batch:
             prompt, offered = build_prompt(row, teks_df, template, args.query_column)
-            prompt_path = None
-            if args.save_prompts:
-                prompt_dir.mkdir(parents=True, exist_ok=True)
-                digest = hashlib.sha256(str(row['id']).encode('utf-8')).hexdigest()[:16]
-                prompt_path = prompt_dir / f'{digest}.txt'
-                prompt_path.write_text(prompt, encoding='utf-8')
+
+            if args.save_prompts and not example_prompt_path.exists():
+                example_prompt_path.write_text(prompt, encoding='utf-8')
+
             if offered:
-                generation, prompt_tokens, latency = classify(prompt, processor, model, args.max_tokens)
-                try:
-                    refusal_pred, violated = parse_guard_output(generation, offered)
-                except ValueError:
-                    if prompt_path:
-                        failure = prompt_path.with_suffix('.response.txt')
-                        failure.write_text(generation, encoding='utf-8')
-                        print(f'Invalid response saved: {failure}', flush=True)
-                    raise
+                result = classify_with_retries(
+                    prompt, offered, processor, model,
+                    args.max_tokens, args.max_retries, str(row['id'])
+                )
+                if result is None:
+                    skipped += 1
+                    continue
+                generation, prompt_tokens, latency, refusal_pred, violated, attempts = result
             else:
                 generation, prompt_tokens, latency = 'safe', 0, 0.0
-                refusal_pred, violated = False, []
+                refusal_pred, violated, attempts = False, [], 0
+
             refusal_gt = parse_bool(row['refusal_gt'])
             batch_output.append({
-                **row, 'generation': generation, 'guard_label': 'unsafe' if refusal_pred else 'safe',
-                'violated_categories': violated, 'offered_categories': offered,
-                'prompt_file': str(prompt_path) if prompt_path else None,
-                'prompt_tokens': prompt_tokens, 'inference_seconds': round(latency, 3),
-                'refusal_pred': refusal_pred, 'refusal_gt': refusal_gt,
+                **row,
+                'generation': generation,
+                'guard_label': 'unsafe' if refusal_pred else 'safe',
+                'violated_categories': violated,
+                'offered_categories': offered,
+                'prompt_tokens': prompt_tokens,
+                'inference_seconds': round(latency, 3),
+                'attempts': attempts,
+                'refusal_pred': refusal_pred,
+                'refusal_gt': refusal_gt,
                 'correct': refusal_pred == refusal_gt,
             })
-            print(f'{len(completed) + len(batch_output)}/{len(data)} | {row["id"]} | '
-                  f'{prompt_tokens:,} tokens | {latency:.1f}s | {generation.strip()!r}', flush=True)
+            print(
+                f'{len(completed) + len(batch_output)}/{len(data)} | {row["id"]} | '
+                f'{prompt_tokens:,} tokens | {latency:.1f}s | '
+                f'{attempts} attempts | {generation.strip()!r}',
+                flush=True
+            )
+
+        if not batch_output:
+            continue
+
         append_jsonl_file(str(output_path), batch_output)
         completed.update({r['id']: r for r in batch_output})
         ordered = [completed[r['id']] for r in data if r['id'] in completed]
         save_evaluation(score_outputs(ordered), str(eval_path))
-        print(f'Saved {len(ordered)} / {len(data)} rows.', flush=True)
+        print(f'Saved {len(ordered)}/{len(data)} rows | Skipped: {skipped}', flush=True)
 
     final = [completed[r['id']] for r in data if r['id'] in completed]
-    metrics = score_outputs(final)
-    print_evaluation(metrics)
-    save_evaluation(metrics, str(eval_path))
-    print(f'Outputs: {output_path}\nEvaluation: {eval_path}\nPrompts: {prompt_dir if args.save_prompts else "disabled"}')
+    if final:
+        metrics = score_outputs(final)
+        print_evaluation(metrics)
+        save_evaluation(metrics, str(eval_path))
+    else:
+        print('No valid classifications to evaluate.', flush=True)
+
+    print(
+        f'Finished | Completed: {len(final)} | Skipped this run: {skipped} | Total: {len(data)}\n'
+        f'Outputs: {output_path}\n'
+        f'Evaluation: {eval_path}\n'
+        f'Example prompt: {example_prompt_path if args.save_prompts else "disabled"}',
+        flush=True
+    )
 
 
 if __name__ == '__main__':
