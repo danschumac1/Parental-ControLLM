@@ -14,10 +14,10 @@
 #     # "Qwen/Qwen2.5-7B-Instruct"
 # )
 
-BACKEND="openai"
-MODELS=(
-    "gpt-5.4-nano"
-)
+# BACKEND="openai"
+# MODELS=(
+#     "gpt-5.4-nano"
+# )
 
 VLLM_BASE_URL="http://localhost:8002/v1"
 
