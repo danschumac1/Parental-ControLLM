@@ -1,29 +1,41 @@
-# Environment / editor
+# Environment / secrets
 .env
+.env.*
+!.env.example
+resources/.env
+.venv/
+venv/
 .vscode/
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
 
 # Logs
 *.log
+nohup.out
+logs/
 
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Scratch files
+# Scratch / temporary
 _scratch_pad.py
+all_python_files.txt
+*.tmp
+*.bak
+*~
 
-# Generated data/results
-data/generated/teks_filter_results/
-data/generated/guardrail_results/
-data/generated/eduQ_generation/
-data/generated/situations
-data/generated/answers
-data/generated/sample.tsv
-data/generated/combined_dataset.tsv
-data/generated/combined_dataset2.tsv
+# Generated experiment outputs
+data/generated/*_results/
+data/generated/answers/
 
-# Annotations
+# Annotations and backups
 data/annotations/
+data/cleaned/*_backup.*
 
-# Backups
-data/cleaned/hecat_standards_backup.tsv
+# OS files
+.DS_Store
+Thumbs.db
