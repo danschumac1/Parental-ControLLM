@@ -86,7 +86,6 @@ from utils.evaluation import (
 TEKS_FILE = "data/cleaned/hecat_standards.tsv"
 PROMPT_PATH = "data/prompts/response_generation/teks_guardrail.yaml"
 OUTPUT_DIR = "data/generated/teks_filter_results"
-VLLM_BASE_URL = "http://localhost:8002/v1"
 ALL_CATS_SET = {"AOD", "FN", "MEH", "PA", "PHW", "S", "SH", "T", "V"}
 
 
@@ -95,13 +94,13 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--input_data_path", type=str, required=True)
     p.add_argument("--backend", choices=["openai", "vllm"], required=True)
     p.add_argument("--model", type=str, required=True)
+    p.add_argument("--port", type=int, default=8002)
     p.add_argument("--n_rows", type=int, default=-1)
     p.add_argument("--save_every", type=int, default=25)
     p.add_argument("--temperature", type=float, default=0.0)
     p.add_argument("--max_tokens", type=int, default=1024)
     p.add_argument("--top_p", type=float, default=1.0)
     return p.parse_args()
-
 
 def build_prompt(row: dict, teks_df: pd.DataFrame, prompt_template: dict) -> list[dict]:
     pretend_age = int(row["pretend_age"])
@@ -225,10 +224,10 @@ def main():
 
         generations = generate(
             messages=messages, model=args.model, backend=args.backend,
-            vllm_base_url=VLLM_BASE_URL, temperature=args.temperature,
-            max_tokens=args.max_tokens, top_p=args.top_p
+            vllm_base_url=f"http://127.0.0.1:{args.port}/v1",
+            temperature=args.temperature, max_tokens=args.max_tokens,
+            top_p=args.top_p
         )
-
         if len(generations) != len(batch_data):
             raise ValueError("Number of generations does not match number of input rows.")
 
