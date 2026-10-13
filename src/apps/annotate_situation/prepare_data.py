@@ -11,7 +11,7 @@ import json
 import random
 
 ROOT = Path(__file__).resolve().parents[3]
-DATA_DIR = ROOT / "data/generated/situations"
+DATA_DIR = ROOT / "data/generated/queries/situations"
 OUT_PATH = DATA_DIR / "annotation_sample_1500.jsonl"
 
 SOURCE_FILES = {

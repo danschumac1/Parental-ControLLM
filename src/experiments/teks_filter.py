@@ -67,6 +67,7 @@ TO RUN: OPEN AI BACKEND #############################################
     tail -f logs/gpt_teks_filter.log
 '''
 
+from pathlib import Path
 import sys; sys.path.append("./src")
 import os
 import json
@@ -190,7 +191,7 @@ def main():
 
     safe_model_name = args.model.replace("/", "--")
     dataset_name = os.path.splitext(os.path.basename(args.input_data_path))[0]
-    run_dir = os.path.join(OUTPUT_DIR, safe_model_name, dataset_name)
+    run_dir = Path(OUTPUT_DIR) / safe_model_name / Path(args.input_data_path).stem
     os.makedirs(run_dir, exist_ok=True)
 
     output_path = os.path.join(run_dir, "outputs.jsonl")

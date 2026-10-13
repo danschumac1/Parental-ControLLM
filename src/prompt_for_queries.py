@@ -74,7 +74,8 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
     safe_model_name = args.model.replace("/", "__")
-    args.output_path = f"./data/generated/{args.generation_type}/{safe_model_name}.jsonl"
+    query_dir = "eduQs" if args.generation_type == "eduQ_generation" else "situations"
+    args.output_path = f"./data/generated/queries/{query_dir}/{safe_model_name}.jsonl"
     args.prompt_folder = f"./data/prompts/{args.generation_type}"
     args.prompt_path = f"{args.prompt_folder}/{args.prompt_type}.yaml"
     args.output_column = args.generation_type.split("_")[0]

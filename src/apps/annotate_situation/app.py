@@ -40,7 +40,7 @@ from app_utils.file_io import (
 )
 
 ROOT = Path(__file__).resolve().parents[3]
-SAMPLE_PATH = ROOT / "data/generated/situations/annotation_sample_1500.jsonl"
+SAMPLE_PATH = ROOT / "data/generated/queries/situations/annotation_sample_1500.jsonl"
 ANNOTATION_DIR = ROOT / "data/annotations/situation_alignment"
 
 ANNOTATORS = {

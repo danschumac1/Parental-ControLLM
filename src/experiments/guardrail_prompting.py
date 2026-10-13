@@ -84,6 +84,7 @@ This script:
 import os
 import json
 import argparse
+from pathlib import Path
 
 from utils.file_io import (
     append_jsonl_file,
@@ -368,11 +369,7 @@ def main():
         "--",
     )
 
-    run_dir = os.path.join(
-        OUTPUT_DIR,
-        safe_model_name,
-    )
-
+    run_dir = Path(OUTPUT_DIR) / safe_model_name / Path(args.input_data_path).stem
     os.makedirs(
         run_dir,
         exist_ok=True,

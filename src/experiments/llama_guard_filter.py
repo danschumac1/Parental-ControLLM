@@ -168,7 +168,7 @@ def main():
 
     safe_model = args.model.replace('/', '--')
     dataset_name = Path(args.input_data_path).stem
-    run_dir = Path(OUTPUT_DIR) / safe_model / dataset_name / args.query_column / 'transformers'
+    run_dir = Path(OUTPUT_DIR) / safe_model / Path(args.input_data_path).stem
     run_dir.mkdir(parents=True, exist_ok=True)
     output_path = run_dir / 'outputs.jsonl'
     eval_path = run_dir / 'eval.json'
