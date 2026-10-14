@@ -22,7 +22,7 @@ source ./bin/_slack_traps.sh
 #region
 : <<'SERVER_NOTES'
 
-# GEMMA 4 12B                           3522583
+# GEMMA 4 12B
 nohup env \
     CUDA_VISIBLE_DEVICES=1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
@@ -50,13 +50,13 @@ nohup env \
 tail -f ./logs/gemma4_31b_server.log
 
 
-# LLAMA 3.3 70B
+# LLAMA 3.3 70B                                 3761104
 nohup env \
     CUDA_VISIBLE_DEVICES=0,1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve meta-llama/Llama-3.3-70B-Instruct \
         --host 127.0.0.1 \
-        --port 8002 \
+        --port 8005 \
         --tensor-parallel-size 2 \
         --gpu-memory-utilization 0.90 \
         --max-model-len 65536 \
@@ -71,10 +71,9 @@ nohup env \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve Qwen/Qwen3.5-4B \
         --host 127.0.0.1 \
-        --port 8002 \
+        --port 8000 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
-        --max-model-len 32768 \
     > ./logs/qwen35_4b_server.log 2>&1 &
 
 tail -f ./logs/qwen35_4b_server.log
@@ -101,7 +100,7 @@ nohup env \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve mistralai/Ministral-3-8B-Instruct-2512 \
         --host 127.0.0.1 \
-        --port 8002 \
+        --port 8000 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
         --max-model-len 32768 \
@@ -119,7 +118,7 @@ nohup env \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve mistralai/Ministral-3-14B-Instruct-2512 \
         --host 127.0.0.1 \
-        --port 8002 \
+        --port 8000 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
         --max-model-len 32768 \
@@ -141,8 +140,8 @@ BACKEND="vllm"
 
 MODELS=(
     # "google/gemma-4-12B-it"
-    "google/gemma-4-31B-it"
-    # "meta-llama/Llama-3.3-70B-Instruct"
+    # "google/gemma-4-31B-it"
+    "meta-llama/Llama-3.3-70B-Instruct"
     # "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"
@@ -161,13 +160,15 @@ MODELS=(
 declare -A MODEL_GPUS=(
     ["google/gemma-4-12B-it"]=1
     ["google/gemma-4-31B-it"]=2
-    ["meta-llama/Llama-3.3-70B-Instruct"]=0
+    ["meta-llama/Llama-3.3-70B-Instruct"]=5
     ["Qwen/Qwen3.5-4B"]=0
     ["Qwen/Qwen3.5-9B"]=0
     ["mistralai/Ministral-3-8B-Instruct-2512"]=0
     ["mistralai/Ministral-3-14B-Instruct-2512"]=0
     ["microsoft/phi-4"]=0
 )
+
+
 
 # =============================================================================
 # DATASETS
