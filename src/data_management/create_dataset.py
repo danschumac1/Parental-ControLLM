@@ -1,215 +1,179 @@
-"""
-Create paired 5,000-row situation and educational-question datasets.
+"""Build one combined dataset from all generated situation and EduQ JSONL files.
 
 Run:
-    python ./src/create_dataset.py
+    python ./src/data_management/create_dataset.py
 
-Outputs:
-    data/generated/situations.tsv
-    data/generated/eduQ.tsv
+Inputs (all three models, excluding annotation samples):
+    data/generated/situations/*.jsonl
+    data/generated/queries/eduQs/*.jsonl
 
-The existing sample.tsv is never modified.
+Output:
+    data/generated/combined_dataset.tsv
 
-Both datasets share the same expectations, parental configurations,
-pretend ages, and ground-truth labels.
+Pairs by HECAT expectation code; prefers the same generating model and rotates
+through questions if an expectation has multiple situations. All original
+situation metadata is retained. DOES NOT invent missing experimental conditions
+or refusal ground truth: those require separate generation/labeling logic.
 """
-import csv
+
 import json
-import random
-import shutil
 from collections import defaultdict
 from pathlib import Path
 
-SAMPLE_PATH = Path("data/generated/sample.tsv")
-EDUQ_DIR = Path("data/generated/eduQ_generation")
-SITUATIONS_PATH = Path("data/generated/situations.tsv")
+import pandas as pd
+
+SITUATIONS_DIR = Path("data/generated/queries/situations")
 EDUQ_DIR = Path("data/generated/queries/eduQs")
-N_SAMPLE_ROWS = 5000
-SEED = 42
-QUESTION_COLUMNS = ("eduQ", "question", "generated_question", "educational_question", "situation")
-MATCH_COLUMNS = ("code",)
+OUTPUT_PATH = Path('data/generated/combined_dataset.tsv')
+EXCLUDED = {'annotation_sample_1500.jsonl'}
+QUESTION_COLUMNS = ('eduQ', 'question', 'generated_question', 'educational_question')
 
-def load_tsv(path: Path) -> list[dict]:
-    with path.open("r", encoding="utf-8", newline="") as f:
-        return list(csv.DictReader(f, delimiter="\t"))
-
-
-def save_tsv(data: list[dict], path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fields = list(dict.fromkeys(key for row in data for key in row))
-    with path.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
-        writer.writeheader()
-        writer.writerows(data)
+OUTPUT_COLUMNS = (
+    'id', 'source_file', 'pdf_page', 'module', 'module_code',
+    'standard_number', 'standard_name', 'expectation_type', 'grade_code',
+    'grade_span', 'item_number', 'code', 'expectation', 'situation',
+    'situation_gen_model_name', 'pretend_age', 'pretend_age_type',
+    'config_type', 'config', 'blocked_cats', 'refusal_gt', 'hbo_codes',
+    'eduq_id', 'eduq', 'source_type', 'eduq_source_id',
+    'eduq_gen_model_name',
+)
 
 
-def normalize(value) -> str:
-    return " ".join(str(value or "").split())
+def norm(value):
+    return ' '.join(str(value or '').split())
 
 
-def expectation_key(row: dict) -> tuple[str, str, str]:
-    return tuple(normalize(row.get(col)) for col in MATCH_COLUMNS)
+def model_name(path):
+    stem = path.stem
+    for prefix in ('google_', 'microsoft_'):
+        if stem.startswith(prefix):
+            return prefix[:-1] + '/' + stem[len(prefix):]
+    return stem.replace('__', '/')
 
 
-def get_model_name(row: dict) -> str:
-    return normalize(row.get("situation_gen_model_name") or row.get("generation_model_name"))
-
-
-def get_question(row: dict) -> str:
-    for col in QUESTION_COLUMNS:
+def text_column(row, columns, location):
+    for col in columns:
         value = row.get(col)
         if isinstance(value, str) and value.strip():
             return value.strip()
-    raise ValueError(f"No educational question found. Available columns: {list(row)}")
+    raise ValueError(f'Missing text in {columns} at {location}')
 
 
-def load_eduq() -> dict:
-    index = defaultdict(list)
-    files = sorted(EDUQ_DIR.glob("*.jsonl"))
+def load(directory):
+    files = [p for p in sorted(directory.glob('*.jsonl')) if p.name not in EXCLUDED]
     if not files:
-        raise FileNotFoundError(f"No JSONL files in {EDUQ_DIR}")
-
+        raise FileNotFoundError(f'No JSONL files found under {directory}')
+    rows = []
     for path in files:
-        model_name = path.stem.replace("__", "/")
         count = 0
-
-        with path.open("r", encoding="utf-8") as f:
-            for line_number, line in enumerate(f, 1):
+        with path.open(encoding='utf-8') as f:
+            for line_no, line in enumerate(f, 1):
                 if not line.strip():
                     continue
-
                 try:
                     row = json.loads(line)
-                except json.JSONDecodeError as e:
-                    raise ValueError(f"Invalid JSON: {path}:{line_number}") from e
-
-                question = get_question(row)
-                key = expectation_key(row)
-
-                if not all(key):
-                    raise ValueError(f"Missing expectation metadata: {path}:{line_number}")
-
-                row["_eduq_id"] = f"eduQ__{path.stem}__{line_number:06d}"
-                row["_eduq_model"] = model_name
-                row["_eduq_question"] = question
-                index[key].append(row)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f'Bad JSON at {path}:{line_no}') from exc
+                if not isinstance(row, dict) or not norm(row.get('code')):
+                    raise ValueError(f'Missing HECAT code at {path}:{line_no}')
+                rows.append((row, model_name(path), f'{path}:{line_no}'))
                 count += 1
-
-        print(f"Loaded {count:>5} eduQ rows from {path.name}")
-
-    return index
+        print(f'  {path}: {count:,} rows')
+    return rows
 
 
-def match_eduq(situations: list[dict], eduq_index: dict) -> list[dict]:
-    rng = random.Random(SEED)
-    matches = []
+def create_dataset(situations, questions):
+    by_code = defaultdict(list)
+    by_code_model = defaultdict(list)
+    for item in questions:
+        row, model, _ = item
+        code = norm(row['code'])
+        by_code[code].append(item)
+        by_code_model[(code, model)].append(item)
+
+    used = defaultdict(int)
+    output = []
     missing = []
-    fallback_models = 0
-    usage = defaultdict(int)
+    fallback = 0
+    reused = 0
+    expectation_mismatch = 0
 
-    for situation in situations:
-        key = expectation_key(situation)
-        candidates = eduq_index.get(key, [])
-
+    for index, (s, s_model, s_location) in enumerate(situations, 1):
+        code = norm(s['code'])
+        same_model = by_code_model.get((code, s_model), [])
+        candidates = same_model if same_model else by_code.get(code, [])
         if not candidates:
-            missing.append((situation["id"], key))
+            missing.append(s_location + ' (' + code + ')')
             continue
+        if not same_model:
+            fallback += 1
+        bucket = (code, s_model if same_model else '__fallback__')
+        offset = used[bucket]
+        used[bucket] += 1
+        if offset >= len(candidates):
+            reused += 1
+        q, q_model, q_location = candidates[offset % len(candidates)]
 
-        model_name = get_model_name(situation)
-        same_model = [row for row in candidates if row["_eduq_model"] == model_name]
+        if norm(s.get('expectation')) != norm(q.get('expectation')):
+            expectation_mismatch += 1
 
-        if same_model:
-            candidates = same_model
-        else:
-            fallback_models += 1
+        # Preserve all situation metadata. Fill in expectation metadata from
+        # the EduQ source only when the situation does not contain that field.
+        row = dict(s)
+        for field, value in q.items():
+            if field not in row and field not in (*QUESTION_COLUMNS, 'id', 'situation'):
+                row[field] = value
 
-        # Rotate through questions for a given expectation/model rather
-        # than selecting the same educational question for every variant.
-        usage_key = (key, model_name)
-        index = usage[usage_key] % len(candidates)
-        usage[usage_key] += 1
-        eduq = candidates[index]
-        if normalize(situation["expectation"]) != normalize(eduq["expectation"]):
-            print(
-                f'WARNING | {situation["id"]} | {key} | '
-                f'Expectation text differs between sources.',
-                flush=True
-            )
-
-        paired = {
-            **situation,
-            "id": f"eduQ__{situation['id']}",
-            "situation": eduq["_eduq_question"],
-            "source_type": "eduQ",
-            "eduq_source_id": eduq["_eduq_id"],
-            "eduq_gen_model_name": eduq["_eduq_model"],
-        }
-        matches.append(paired)
+        original_id = norm(s.get('id'))
+        row['id'] = original_id or f'{s_model.replace("/", "__")}__{index:08d}'
+        row['situation'] = text_column(s, ('situation',), s_location)
+        row['eduq'] = text_column(q, QUESTION_COLUMNS, q_location)
+        row['situation_gen_model_name'] = norm(s.get('situation_gen_model_name')) or s_model
+        row['eduq_gen_model_name'] = norm(q.get('eduq_gen_model_name')) or q_model
+        row['eduq_id'] = 'eduQ__' + row['id']
+        row['eduq_source_id'] = norm(q.get('id')) or f'{q_model.replace("/", "__")}__{q_location.rsplit(":", 1)[-1]}'
+        row['source_type'] = 'eduQ'
+        output.append(row)
 
     if missing:
-        print(f"\nERROR: {len(missing)} situation rows have no matching eduQ.")
-        for row_id, key in missing[:10]:
-            print(f"  {row_id} | {key}")
-        raise ValueError("Cannot create a fully paired dataset. Missing eduQ expectations.")
+        raise ValueError(f'{len(missing):,} situations without an EduQ match:\n' + '\n'.join(missing[:10]))
+    if not output:
+        raise ValueError('No paired rows produced.')
 
-    print(f"Matched eduQ rows:       {len(matches)}")
-    print(f"Different-model matches: {fallback_models}")
-    return matches
+    df = pd.DataFrame(output)
+    if not df['id'].is_unique:
+        raise ValueError('Duplicate situation IDs. Cannot safely produce paired data.')
+    if len(df) != len(situations):
+        raise ValueError('Some situations were lost.')
+    if df[['situation', 'eduq']].isna().any().any():
+        raise ValueError('Missing question text.')
+    for col in ('situation', 'eduq'):
+        if df[col].astype(str).str.strip().eq('').any():
+            raise ValueError(f'Blank {col} text.')
 
+    # These cannot be derived merely by joining the JSONL files.
+    for col in ('pretend_age', 'pretend_age_type', 'config_type', 'config', 'blocked_cats', 'refusal_gt'):
+        if col not in df.columns or df[col].isna().all():
+            print(f'WARNING: {col} not supplied by input JSONL; no values invented.')
 
-def validate_pairs(situations: list[dict], eduq: list[dict]) -> None:
-    if len(situations) != N_SAMPLE_ROWS or len(eduq) != N_SAMPLE_ROWS:
-        raise ValueError("Both datasets must contain exactly 5,000 rows.")
-
-    shared = [
-        "expectation", "module_code", "grade_code", "pretend_age",
-        "pretend_age_type", "config_type", "config",
-        "blocked_cats", "refusal_gt"
-    ]
-
-    for i, (s, e) in enumerate(zip(situations, eduq), 1):
-        for col in shared:
-            if normalize(s.get(col)) != normalize(e.get(col)):
-                raise ValueError(f"Pair {i}: mismatch in {col}")
-
-        if s["id"] == e["id"]:
-            raise ValueError(f"Pair {i}: duplicate IDs")
-
-    ids = [row["id"] for row in eduq]
-    if len(ids) != len(set(ids)):
-        raise ValueError("Duplicate eduQ IDs detected.")
-
-    print("Validation passed: all 5,000 pairs share experimental conditions.")
+    ordered = [c for c in OUTPUT_COLUMNS if c in df.columns]
+    df = df[ordered + [c for c in df.columns if c not in ordered]]
+    print(f'Paired rows: {len(df):,} | expectations: {df["code"].nunique():,}')
+    print(f'Model fallbacks: {fallback:,} | reused questions: {reused:,}')
+    print(f'Expectation text mismatches: {expectation_mismatch:,}')
+    return df
 
 
 def main():
-    if not SAMPLE_PATH.exists():
-        raise FileNotFoundError(SAMPLE_PATH)
-
-    situations = load_tsv(SAMPLE_PATH)
-    print(f"Existing sample rows: {len(situations)}")
-
-    if len(situations) != N_SAMPLE_ROWS:
-        raise ValueError(f"Expected {N_SAMPLE_ROWS} existing sample rows.")
-
-    ids = [row["id"] for row in situations]
-    if len(ids) != len(set(ids)):
-        raise ValueError("Duplicate IDs in existing sample.")
-
-    eduq_index = load_eduq()
-    eduq = match_eduq(situations, eduq_index)
-    validate_pairs(situations, eduq)
-
-    # Copy existing situation sample without modifying its contents.
-    if SAMPLE_PATH.resolve() != SITUATIONS_PATH.resolve():
-        shutil.copy2(SAMPLE_PATH, SITUATIONS_PATH)
-
-    save_tsv(eduq, EDUQ_PATH)
-
-    print(f"\nSituations: {SITUATIONS_PATH} ({len(situations)} rows)")
-    print(f"EduQ:       {EDUQ_PATH} ({len(eduq)} rows)")
-    print(f"Original:   {SAMPLE_PATH} (unchanged)")
+    print('Situation inputs:')
+    situations = load(SITUATIONS_DIR)
+    print('\nEduQ inputs:')
+    questions = load(EDUQ_DIR)
+    df = create_dataset(situations, questions)
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(OUTPUT_PATH, sep='\t', index=False)
+    print(f'\nSaved: {OUTPUT_PATH} ({len(df):,} rows)')
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

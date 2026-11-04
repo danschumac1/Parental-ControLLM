@@ -1,32 +1,37 @@
-'''
+
+"""
 2026-11-04
 
-Creates train/dev/test splits such that:
+Create train/dev/test splits from the combined dataset.
+
 1. Each row contains both a situation and an EduQ.
 2. All original content and metadata are retained.
 3. Each expectation belongs to exactly one split.
-4. Splits are approximately 60/20/20.
+4. Splits are approximately 60/20/20 by expectation count.
 
 Run:
     python ./src/data_management/train_dev_test_split.py
-'''
 
-import sys; sys.path.append("./src")
+Input:
+    data/generated/combined_dataset.tsv
+
+Outputs:
+    data/splits/train.tsv
+    data/splits/dev.tsv
+    data/splits/test.tsv
+"""
+
 import random
 from pathlib import Path
 
 import pandas as pd
-
-from utils.file_io import load_tsv_file
 
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
-FULL_SITUATIONS_PATH = "data/generated/situations.tsv"
-FULL_EDUQ_PATH = "data/generated/eduQ.tsv"
-
+INPUT_PATH = Path("data/generated/combined_dataset.tsv")
 OUTPUT_DIR = Path("data/splits")
 
 RANDOM_STATE = 42
@@ -45,7 +50,7 @@ assert P_TRAIN + P_DEV + P_TEST == 100
 def split_expectations(expectations):
     """Randomly assign unique expectations to train/dev/test."""
 
-    expectations = list(expectations)
+    expectations = sorted(expectations)
 
     rng = random.Random(RANDOM_STATE)
     rng.shuffle(expectations)
@@ -63,7 +68,7 @@ def split_expectations(expectations):
 
 
 def validate_splits(train_df, dev_df, test_df, full_df):
-    """Check for expectation leakage, duplicate IDs, and lost rows."""
+    """Check for leakage, duplicate IDs, missing data, and lost rows."""
 
     splits = {
         "train": train_df,
@@ -81,7 +86,7 @@ def validate_splits(train_df, dev_df, test_df, full_df):
     assert expectations["train"].isdisjoint(expectations["test"])
     assert expectations["dev"].isdisjoint(expectations["test"])
 
-    # No IDs may appear in multiple splits.
+    # No ID may appear in multiple splits.
     ids = {
         name: set(df["id"])
         for name, df in splits.items()
@@ -94,12 +99,20 @@ def validate_splits(train_df, dev_df, test_df, full_df):
     # No rows or expectations are lost.
     assert sum(len(df) for df in splits.values()) == len(full_df)
 
-    assert set().union(*expectations.values()) == set(full_df["expectation"])
+    assert (
+        set().union(*expectations.values())
+        == set(full_df["expectation"])
+    )
 
-    # Every row must contain both types of requests.
+    # Every row must contain both requests.
     for name, df in splits.items():
-        assert df["situation"].notna().all(), f"Missing situations in {name}"
-        assert df["eduq"].notna().all(), f"Missing EduQs in {name}"
+        for col in ("situation", "eduq"):
+            assert df[col].notna().all(), (
+                f"Missing {col} values in {name}"
+            )
+            assert df[col].astype(str).str.strip().ne("").all(), (
+                f"Empty {col} values in {name}"
+            )
 
     print("All split validations passed.")
 
@@ -111,98 +124,40 @@ def validate_splits(train_df, dev_df, test_df, full_df):
 def main():
 
     # -------------------------------------------------------------------------
-    # Load data
+    # Load combined dataset
     # -------------------------------------------------------------------------
 
-    situ_df = pd.DataFrame(load_tsv_file(FULL_SITUATIONS_PATH))
-    eduq_df = pd.DataFrame(load_tsv_file(FULL_EDUQ_PATH))
+    if not INPUT_PATH.exists():
+        raise FileNotFoundError(INPUT_PATH)
 
-    print(f"Situation rows: {len(situ_df):,}")
-    print(f"EduQ rows:      {len(eduq_df):,}")
+    df = pd.read_csv(INPUT_PATH, sep="\t", dtype=str)
 
-    print(f"Situation expectations: {situ_df['expectation'].nunique():,}")
-    print(f"EduQ expectations:      {eduq_df['expectation'].nunique():,}")
+    required = {"id", "expectation", "situation", "eduq"}
+    missing = required - set(df.columns)
 
-    # -------------------------------------------------------------------------
-    # Normalize IDs for pairing
-    # -------------------------------------------------------------------------
-    #
-    # Situation ID:
-    #   google__gemma-4-12B-it__000290__all_allowed__inappropriate
-    #
-    # EduQ ID:
-    #   eduQ__google__gemma-4-12B-it__000290__all_allowed__inappropriate
-    #
-    # Removing "eduQ__" gives us a shared pairing key.
-    # -------------------------------------------------------------------------
+    if missing:
+        raise ValueError(f"Missing required columns: {sorted(missing)}")
 
-    situ_df["pair_id"] = situ_df["id"]
+    if df.empty:
+        raise ValueError("Combined dataset is empty.")
 
-    assert eduq_df["id"].str.startswith("eduQ__").all(), (
-        "Some EduQ IDs do not start with 'eduQ__'."
-    )
+    if df["id"].isna().any() or not df["id"].is_unique:
+        raise ValueError("Missing or duplicate IDs in combined dataset.")
 
-    eduq_df["pair_id"] = eduq_df["id"].str.removeprefix("eduQ__")
+    if (
+        df["expectation"].isna().any()
+        or df["expectation"].str.strip().eq("").any()
+    ):
+        raise ValueError("Missing or empty expectations.")
 
-    assert situ_df["pair_id"].is_unique, "Duplicate situation IDs."
-    assert eduq_df["pair_id"].is_unique, "Duplicate EduQ pairing IDs."
-
-    situ_ids = set(situ_df["pair_id"])
-    eduq_ids = set(eduq_df["pair_id"])
-
-    assert situ_ids == eduq_ids, (
-        f"Situation/EduQ pairing IDs do not match.\n"
-        f"Only in situations: {len(situ_ids - eduq_ids)}\n"
-        f"Only in EduQ: {len(eduq_ids - situ_ids)}"
-    )
-
-    # -------------------------------------------------------------------------
-    # Merge situations and EduQs
-    # -------------------------------------------------------------------------
-
-    eduq_df = eduq_df.rename(columns={
-        "id": "eduq_id",
-        "situation": "eduq",
-    })
-
-    df = situ_df.merge(
-        eduq_df,
-        on="pair_id",
-        how="inner",
-        suffixes=("", "_eduq"),
-        validate="one_to_one"
-    )
-
-    assert len(df) == len(situ_df) == len(eduq_df), (
-        "Rows were lost or duplicated during merging."
-    )
-
-    # Verify all shared metadata matches before dropping duplicate columns.
-    duplicate_cols = [
-        col for col in df.columns
-        if col.endswith("_eduq") and col != "eduq_id"
-    ]
-
-    for col in duplicate_cols:
-        original = col.removesuffix("_eduq")
-
-        assert (
-            df[original].fillna("").astype(str)
-            == df[col].fillna("").astype(str)
-        ).all(), f"Metadata mismatch: {original}"
-
-    df = df.drop(columns=duplicate_cols)
-
-    # Temporary pairing key is no longer necessary.
-    df = df.drop(columns="pair_id")
-
-    print(f"\nSuccessfully paired {len(df):,} situations with EduQs.")
+    print(f"Total rows:         {len(df):,}")
+    print(f"Total expectations: {df['expectation'].nunique():,}")
 
     # -------------------------------------------------------------------------
     # Split by expectation
     # -------------------------------------------------------------------------
 
-    expectations = sorted(df["expectation"].unique())
+    expectations = df["expectation"].unique()
 
     train_exp, dev_exp, test_exp = split_expectations(expectations)
 
@@ -222,11 +177,13 @@ def main():
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    for name, split_df in [
-        ("train", train_df),
-        ("dev", dev_df),
-        ("test", test_df),
-    ]:
+    splits = {
+        "train": train_df,
+        "dev": dev_df,
+        "test": test_df,
+    }
+
+    for name, split_df in splits.items():
         split_df.to_csv(
             OUTPUT_DIR / f"{name}.tsv",
             sep="\t",
@@ -240,13 +197,9 @@ def main():
     print("\nSPLIT SUMMARY")
     print("-" * 65)
 
-    for name, split_df in [
-        ("TRAIN", train_df),
-        ("DEV", dev_df),
-        ("TEST", test_df),
-    ]:
+    for name, split_df in splits.items():
         print(
-            f"{name:<6} "
+            f"{name.upper():<6} "
             f"rows={len(split_df):>6,} | "
             f"expectations={split_df['expectation'].nunique():>5,} | "
             f"rows%={len(split_df) / len(df):>6.2%}"

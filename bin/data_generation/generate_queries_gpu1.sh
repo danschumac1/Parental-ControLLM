@@ -8,15 +8,15 @@
 
 set -euo pipefail
 # 3230521
-# nohup env \
-#     CUDA_VISIBLE_DEVICES=1 \
-#     VLLM_USE_FLASHINFER_SAMPLER=0 \
-#     vllm serve microsoft/phi-4 \
-#         --host 127.0.0.1 \
-#         --port 8002 \
-#         --tensor-parallel-size 1 \
-#         --gpu-memory-utilization 0.90 \
-#     > ./logs/phi_vllm_gpu0.log 2>&1 &
+nohup env \
+    CUDA_VISIBLE_DEVICES=3 \
+    VLLM_USE_FLASHINFER_SAMPLER=0 \
+    vllm serve google/gemma-4-12B-it \
+        --host 127.0.0.1 \
+        --port 8002 \
+        --tensor-parallel-size 1 \
+        --gpu-memory-utilization 0.90 \
+    > ./logs/gemma_vllm_gpu3.log 2>&1 &
 
 
 # -------------------------
@@ -25,8 +25,8 @@ set -euo pipefail
 
 BACKEND="vllm"
 MODELS=(
-    # "google/gemma-4-12B-it"
-    "microsoft/phi-4"
+    "google/gemma-4-12B-it"
+    # "microsoft/phi-4"
 )
 
 # BACKEND="openai"
@@ -35,7 +35,7 @@ MODELS=(
 # )
 
 VLLM_BASE_URL="http://localhost:8002/v1"
-GPU_ID=1
+GPU_ID=3
 
 # -------------------------
 # GENERATION CONFIG
@@ -57,7 +57,9 @@ LIMIT=-1
 # PATHS
 # -------------------------
 
-INPUT_PATH="./data/cleaned/hecat_standards.tsv"
+# INPUT_PATH="./data/cleaned/hecat_standards.tsv"
+INPUT_PATH="./data/generated/queries/missing_eduq_standards.tsv"
+
 SCRIPT_PATH="./src/prompt_for_queries.py"
 
 # -------------------------
