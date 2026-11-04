@@ -1,0 +1,12 @@
+{
+    "input_data_path": "./data/generated/sample.tsv",
+    "model": "meta-llama/Llama-Guard-4-12B",
+    "backend": "transformers",
+    "query_column": "situation",
+    "prompt_path": "data/prompts/llama_guard/hecat_expectations.yaml",
+    "n_rows": 3,
+    "save_every": 1,
+    "max_tokens": 32,
+    "attention_chunk_size": 8192,
+    "save_prompts": true
+}

@@ -1,0 +1,11 @@
+{
+    "input_data_path": "./data/generated/eduQ.tsv",
+    "backend": "vllm",
+    "model": "google/gemma-4-31B-it",
+    "port": 8002,
+    "n_rows": -1,
+    "save_every": 1,
+    "temperature": 0.0,
+    "max_tokens": 1024,
+    "top_p": 1.0
+}
