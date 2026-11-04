@@ -1,3 +1,4 @@
+
 #!/usr/bin/env bash
 
 # =============================================================================
@@ -5,12 +6,19 @@
 # =============================================================================
 # Run:
 #   chmod +x ./bin/experiments/teks_filter_vllm.sh
-#   nohup ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_launcher.log 2>&1 &
+#   nohup bash ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_launcher.log 2>&1 &
 #
 # Monitor:
 #   tail -f ./logs/teks_filter_launcher.log
 #
+# Input:
+#   data/splits/test.tsv
+#
+# Output:
+#   data/generated/teks_filter_results/<model>/<query_type>/outputs.jsonl
+#
 # Individual model logs are generated automatically.
+# Existing outputs are reused to resume incomplete experiments.
 # =============================================================================
 
 LOG_FILE="./logs/teks_filter_launcher.log"
@@ -33,8 +41,6 @@ nohup env \
     > ./logs/gemma4_12b_server.log 2>&1 &
 
 tail -f ./logs/gemma4_12b_server.log
-nohup ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_gemma4_12b.log 2>&1 &
-tail -f ./logs/teks_filter_gemma4_12b.log
 
 
 # GEMMA 4 31B
@@ -47,10 +53,11 @@ nohup env \
         --gpu-memory-utilization 0.90 \
         --max-model-len 65536 \
     > ./logs/gemma4_31b_server.log 2>&1 &
+
 tail -f ./logs/gemma4_31b_server.log
 
 
-# LLAMA 3.3 70B                                 3761104
+# LLAMA 3.3 70B
 nohup env \
     CUDA_VISIBLE_DEVICES=0,1 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
@@ -85,7 +92,7 @@ nohup env \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve Qwen/Qwen3.5-9B \
         --host 127.0.0.1 \
-        --port 8002 \
+        --port 8000 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
     > ./logs/qwen35_9b_server.log 2>&1 &
@@ -140,8 +147,8 @@ BACKEND="vllm"
 MODELS=(
     # "google/gemma-4-12B-it"
     # "google/gemma-4-31B-it"
-    "meta-llama/Llama-3.3-70B-Instruct"
-    # "Qwen/Qwen3.5-4B"
+    # "meta-llama/Llama-3.3-70B-Instruct"
+    "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"
     # "mistralai/Ministral-3-14B-Instruct-2512"
@@ -149,34 +156,35 @@ MODELS=(
 )
 
 # =============================================================================
-# GPU ASSIGNMENTS
+# SERVER PORT ASSIGNMENTS
 # =============================================================================
-# Port convention: GPU 0 -> 8001, GPU 1 -> 8002, etc.
-# These assignments describe where the servers are already running.
+# These are server ports, not necessarily physical GPU numbers.
 # This script does NOT launch or move vLLM servers.
 # =============================================================================
 
-declare -A MODEL_GPUS=(
-    ["google/gemma-4-12B-it"]=1
-    ["google/gemma-4-31B-it"]=2
-    ["meta-llama/Llama-3.3-70B-Instruct"]=5
-    ["Qwen/Qwen3.5-4B"]=0
-    ["Qwen/Qwen3.5-9B"]=0
-    ["mistralai/Ministral-3-8B-Instruct-2512"]=0
-    ["mistralai/Ministral-3-14B-Instruct-2512"]=0
-    ["microsoft/phi-4"]=0
+declare -A MODEL_PORTS=(
+    ["google/gemma-4-12B-it"]=8001
+    ["google/gemma-4-31B-it"]=8002
+    ["meta-llama/Llama-3.3-70B-Instruct"]=8005
+    ["Qwen/Qwen3.5-4B"]=8000
+    ["Qwen/Qwen3.5-9B"]=8000
+    ["mistralai/Ministral-3-8B-Instruct-2512"]=8000
+    ["mistralai/Ministral-3-14B-Instruct-2512"]=8000
+    ["microsoft/phi-4"]=8000
 )
 
-
-
 # =============================================================================
-# DATASETS
+# QUERY TYPES
+# =============================================================================
+# Both columns are loaded from the same test.tsv file.
 # =============================================================================
 
-DATASETS=(
-    # "situations"
+QUERY_TYPES=(
+    "situation"
     "eduQ"
 )
+
+INPUT_DATA_PATH="./data/splits/test.tsv"
 
 # =============================================================================
 # EXPERIMENT CONFIG
@@ -198,14 +206,21 @@ mkdir -p ./logs
 echo "=============================================="
 echo "STARTING TEKS FILTER EXPERIMENTS"
 echo "=============================================="
-echo "Host:     $(hostname)"
-echo "Backend:  ${BACKEND}"
-echo "Models:   ${MODELS[*]}"
-echo "Datasets: ${DATASETS[*]}"
+echo "Host:        $(hostname)"
+echo "Backend:     ${BACKEND}"
+echo "Models:      ${MODELS[*]}"
+echo "Query types: ${QUERY_TYPES[*]}"
+echo "Input:       ${INPUT_DATA_PATH}"
 echo "=============================================="
 
-if (( ${#MODELS[@]} == 0 || ${#DATASETS[@]} == 0 )); then
+if (( ${#MODELS[@]} == 0 || ${#QUERY_TYPES[@]} == 0 )); then
+    echo "ERROR: No models or query types selected."
     run "Validate experiment selection" false
+fi
+
+if [[ ! -f "${INPUT_DATA_PATH}" ]]; then
+    echo "ERROR: Test dataset not found: ${INPUT_DATA_PATH}"
+    run "Missing dataset: ${INPUT_DATA_PATH}" false
 fi
 
 # =============================================================================
@@ -214,40 +229,32 @@ fi
 
 for model in "${MODELS[@]}"; do
 
-    if [[ ! -v MODEL_GPUS["$model"] ]]; then
-        echo "ERROR: No GPU assigned to ${model}"
-        run "Missing GPU assignment: ${model}" false
+    if [[ ! -v MODEL_PORTS["$model"] ]]; then
+        echo "ERROR: No port assigned to ${model}"
+        run "Missing port assignment: ${model}" false
     fi
 
-    GPU="${MODEL_GPUS[$model]}"
-    PORT="800$((GPU))"
+    PORT="${MODEL_PORTS[$model]}"
     SAFE_MODEL="${model//\//--}"
 
-    for dataset in "${DATASETS[@]}"; do
+    for query_type in "${QUERY_TYPES[@]}"; do
 
-        INPUT_DATA_PATH="./data/generated/${dataset}.tsv"
-        LOG_FILE="./logs/teks_filter_${SAFE_MODEL}_${dataset}_gpu${GPU}_port${PORT}.log"
+        LOG_FILE="./logs/teks_filter_${SAFE_MODEL}_${query_type}_port${PORT}.log"
 
         echo "----------------------------------------------"
-        echo "Model:   ${model}"
-        echo "Dataset: ${dataset}"
-        echo "GPU:     ${GPU}"
-        echo "Port:    ${PORT}"
-        echo "Log:     ${LOG_FILE}"
+        echo "Model:      ${model}"
+        echo "Query type: ${query_type}"
+        echo "Port:       ${PORT}"
+        echo "Input:      ${INPUT_DATA_PATH}"
+        echo "Log:        ${LOG_FILE}"
         echo "----------------------------------------------"
-
-        if [[ ! -f "${INPUT_DATA_PATH}" ]]; then
-            echo "ERROR: Dataset not found: ${INPUT_DATA_PATH}"
-            run "Missing dataset: ${INPUT_DATA_PATH}" false
-        fi
 
         {
             echo ""
             echo "=============================================="
             echo "START: $(date)"
             echo "Model: ${model}"
-            echo "Dataset: ${dataset}"
-            echo "GPU: ${GPU}"
+            echo "Query type: ${query_type}"
             echo "Port: ${PORT}"
             echo "=============================================="
         } >> "${LOG_FILE}"
@@ -256,20 +263,28 @@ for model in "${MODELS[@]}"; do
         run "Verify server | ${model} | Port ${PORT}" \
             python -c '
 import json, sys, urllib.request
+
 port, expected = sys.argv[1:]
 url = f"http://127.0.0.1:{port}/v1/models"
+
 with urllib.request.urlopen(url, timeout=10) as response:
     models = json.load(response)["data"]
+
 available = [m["id"] for m in models]
+
 if expected not in available:
-    raise RuntimeError(f"Expected {expected}, found {available} on port {port}")
+    raise RuntimeError(
+        f"Expected {expected}, found {available} on port {port}"
+    )
+
 print(f"Verified: {expected} on port {port}")
 ' "${PORT}" "${model}" >> "${LOG_FILE}" 2>&1
 
         # Run TEKS filter and write to model-specific log.
-        run "TEKS Filter | ${model} | ${dataset} | GPU ${GPU} | Port ${PORT}" \
+        run "TEKS Filter | ${model} | ${query_type} | Port ${PORT}" \
             python -u ./src/experiments/teks_filter.py \
                 --input_data_path "${INPUT_DATA_PATH}" \
+                --query_row "${query_type}" \
                 --backend "${BACKEND}" \
                 --model "${model}" \
                 --port "${PORT}" \
@@ -280,7 +295,7 @@ print(f"Verified: {expected} on port {port}")
                 --top_p "${TOP_P}" \
             >> "${LOG_FILE}" 2>&1
 
-        echo "FINISHED: ${model} | ${dataset}"
+        echo "FINISHED: ${model} | ${query_type}"
 
         {
             echo "=============================================="
@@ -308,5 +323,6 @@ Script: $(basename "$0")
 Host: $(hostname)
 Backend: ${BACKEND}
 Models: ${MODELS[*]}
-Datasets: ${DATASETS[*]}
+Query types: ${QUERY_TYPES[*]}
+Input: ${INPUT_DATA_PATH}
 Logs: ./logs/teks_filter_*"

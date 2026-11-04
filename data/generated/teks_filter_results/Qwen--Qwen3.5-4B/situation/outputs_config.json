@@ -1,0 +1,12 @@
+{
+    "input_data_path": "./data/splits/test.tsv",
+    "query_row": "situation",
+    "backend": "vllm",
+    "model": "Qwen/Qwen3.5-4B",
+    "port": 8000,
+    "n_rows": -1,
+    "save_every": 1,
+    "temperature": 0.0,
+    "max_tokens": 1024,
+    "top_p": 1.0
+}
