@@ -88,7 +88,6 @@ nohup env \
         --port 8002 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
-        --max-model-len 32768 \
     > ./logs/qwen35_9b_server.log 2>&1 &
 
 tail -f ./logs/qwen35_9b_server.log
@@ -121,7 +120,7 @@ nohup env \
         --port 8000 \
         --tensor-parallel-size 1 \
         --gpu-memory-utilization 0.90 \
-        --max-model-len 32768 \
+        --max-model-len 65536 \
         --tokenizer-mode mistral \
         --config-format mistral \
         --load-format mistral \

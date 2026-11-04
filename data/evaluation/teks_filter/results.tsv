@@ -1,0 +1,6 @@
+Model	query_type	TP	TN	FP	FN	acc	prec	rec	refusal_f1	allow_f1	macro_f1
+google--gemma-4-12B-it	eduQ	16	264	0	719	0.28	1.0	0.022	0.043	0.423	0.233
+google--gemma-4-31B-it	eduQ	98	264	0	637	0.362	1.0	0.133	0.235	0.453	0.344
+gpt-5.4-nano	eduQ	76	257	7	659	0.333	0.916	0.103	0.186	0.436	0.311
+meta-llama--Llama-3.3-70B-Instruct	eduQ	92	262	2	643	0.354	0.979	0.125	0.222	0.448	0.335
+meta-llama--Llama-3.3-70B-Instruct	situations	206	244	20	529	0.45	0.912	0.28	0.429	0.471	0.45
