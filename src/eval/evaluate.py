@@ -134,24 +134,30 @@ def main():
 
     dataframes = []
 
+    
     for file in files:
-        # Expected path:
-        # <method>_results/<model>/<query_type>/outputs.jsonl
-
         model = file.parent.parent.name
         query_type = file.parent.name
 
-        df = pd.read_json(file, lines=True, dtype=False)
+        try:
+            df = pd.read_json(file, lines=True)
+
+        except (ValueError, OSError) as e:
+            print(f"WARNING: Could not read {file}: {e}")
+            continue
+
+        if df.empty:
+            print(f"WARNING: Empty file: {file}")
+            continue
 
         missing = REQUIRED_COLUMNS - set(df.columns)
-        if missing:
-            raise ValueError(
-                f"{file}: Missing columns {sorted(missing)}"
-            )
 
-        # -----------------------------------------------------
-        # Filter to test expectations
-        # -----------------------------------------------------
+        if missing:
+            print(
+                f"WARNING: Skipping {file}: "
+                f"Missing columns {sorted(missing)}"
+            )
+            continue
 
         original_count = len(df)
 
@@ -171,6 +177,7 @@ def main():
         df["query_type"] = query_type
 
         dataframes.append(df)
+
 
     if not dataframes:
         raise ValueError(
