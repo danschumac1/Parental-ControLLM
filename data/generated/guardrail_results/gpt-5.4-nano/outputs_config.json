@@ -1,0 +1,11 @@
+{
+    "input_data_path": "./data/generated/combined_dataset.tsv",
+    "query_column": "situation",
+    "backend": "openai",
+    "model": "gpt-5.4-nano",
+    "n_rows": -1,
+    "save_every": 25,
+    "temperature": 0.0,
+    "max_tokens": 1024,
+    "top_p": 1.0
+}

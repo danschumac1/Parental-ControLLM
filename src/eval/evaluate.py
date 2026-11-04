@@ -3,7 +3,7 @@
 2026-11-04
 
 Run:
-    python ./src/eval/evaluate.py llama_guard
+    python ./src/eval/evaluate.py teks_filter
 
 Input:
     data/generated/teks_filter_results/<model>/<query_type>/outputs.jsonl

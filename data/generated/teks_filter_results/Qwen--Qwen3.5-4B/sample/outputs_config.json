@@ -1,0 +1,10 @@
+{
+    "input_data_path": "./data/generated/sample.tsv",
+    "backend": "vllm",
+    "model": "Qwen/Qwen3.5-4B",
+    "n_rows": -1,
+    "save_every": 5,
+    "temperature": 0.0,
+    "max_tokens": 1024,
+    "top_p": 1.0
+}
