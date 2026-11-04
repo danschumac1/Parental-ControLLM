@@ -28,13 +28,13 @@ all_python_files.txt
 *.bak
 *~
 
-# Generated experiment outputs
-data/generated/*_results/
-data/generated/answers/
+# # Generated experiment outputs
+# data/generated/*_results/
+# data/generated/answers/
 
-# Annotations and backups
-data/annotations/
-data/cleaned/*_backup.*
+# # Annotations and backups
+# data/annotations/
+# data/cleaned/*_backup.*
 
 # OS files
 .DS_Store
