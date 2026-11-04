@@ -6,7 +6,7 @@
 # =============================================================================
 # Run:
 #   chmod +x ./bin/experiments/teks_filter_vllm.sh
-#   nohup bash ./bin/experiments/teks_filter_vllm.sh > ./logs/teks_filter_launcher.log 2>&1 &
+#   nohup bash ./bin/experiments/teks_filter/s37/teks_filter_vllm.sh > ./logs/teks_filter_launcher.log 2>&1 &
 #
 # Monitor:
 #   tail -f ./logs/teks_filter_launcher.log
@@ -32,11 +32,11 @@ source ./bin/_slack_traps.sh
 
 # GEMMA 4 12B
 nohup env \
-    CUDA_VISIBLE_DEVICES=1 \
+    CUDA_VISIBLE_DEVICES=0 \
     VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve google/gemma-4-12B-it \
         --host 127.0.0.1 \
-        --port 8001 \
+        --port 8002 \
         --gpu-memory-utilization 0.90 \
     > ./logs/gemma4_12b_server.log 2>&1 &
 
@@ -145,10 +145,10 @@ SERVER_NOTES
 BACKEND="vllm"
 
 MODELS=(
-    # "google/gemma-4-12B-it"
+    "google/gemma-4-12B-it"
     # "google/gemma-4-31B-it"
     # "meta-llama/Llama-3.3-70B-Instruct"
-    "Qwen/Qwen3.5-4B"
+    # "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"
     # "mistralai/Ministral-3-14B-Instruct-2512"
@@ -163,7 +163,7 @@ MODELS=(
 # =============================================================================
 
 declare -A MODEL_PORTS=(
-    ["google/gemma-4-12B-it"]=8001
+    ["google/gemma-4-12B-it"]=8002
     ["google/gemma-4-31B-it"]=8002
     ["meta-llama/Llama-3.3-70B-Instruct"]=8005
     ["Qwen/Qwen3.5-4B"]=8000
@@ -181,7 +181,7 @@ declare -A MODEL_PORTS=(
 
 QUERY_TYPES=(
     "situation"
-    "eduQ"
+    # "eduQ"
 )
 
 INPUT_DATA_PATH="./data/splits/test.tsv"
