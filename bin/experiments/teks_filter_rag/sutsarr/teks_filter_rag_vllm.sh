@@ -99,11 +99,11 @@ INPUT_DATA_PATH="./data/splits/test.tsv"
 
 QUERY_TYPES=(
     "situation"
-    # "eduq"
+    "eduq"
 )
 
 RETRIEVAL_CORPORA=(
-    # "split"
+    "split"
     "full"
 )
 
