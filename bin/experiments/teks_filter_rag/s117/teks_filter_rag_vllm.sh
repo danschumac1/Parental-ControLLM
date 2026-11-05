@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 2754623
+# 2816698
 # =============================================================================
 # TEKS FILTER RAG EXPERIMENTS — vLLM
 # =============================================================================
@@ -98,12 +98,12 @@ declare -A MODEL_PORTS=(
 INPUT_DATA_PATH="./data/splits/test.tsv"
 
 QUERY_TYPES=(
-    "situation"
-    # "eduq"
+    # "situation"
+    "eduq"
 )
 
 RETRIEVAL_CORPORA=(
-    # "split"
+    "split"
     "full"
 )
 
