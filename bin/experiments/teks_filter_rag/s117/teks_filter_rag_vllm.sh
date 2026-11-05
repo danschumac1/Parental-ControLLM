@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-
+# 2754623
 # =============================================================================
 # TEKS FILTER RAG EXPERIMENTS — vLLM
 # =============================================================================
 # Run:
 #   mkdir -p ./logs
-#   chmod +x ./bin/experiments/teks_filter_rag/sutsarr/teks_filter_rag_vllm.sh
-#   nohup bash ./bin/experiments/teks_filter_rag/sutsarr/teks_filter_rag_vllm.sh \
-#       > ./logs/teks_filter_rag_launcher.log 2>&1 &
+#   chmod +x ./bin/experiments/teks_filter_rag/s117/teks_filter_rag_vllm.sh
+#   nohup bash ./bin/experiments/teks_filter_rag/s117/teks_filter_rag_vllm.sh > ./logs/teks_filter_rag_launcher.log 2>&1 &
 #
 # Monitor:
 #   tail -f ./logs/teks_filter_rag_launcher.log
@@ -72,10 +71,10 @@ SERVER_NOTES
 BACKEND="vllm"
 
 MODELS=(
-    "google/gemma-4-12B-it"
+    # "google/gemma-4-12B-it"
     # "google/gemma-4-31B-it"
     # "meta-llama/Llama-3.3-70B-Instruct"
-    # "Qwen/Qwen3.5-4B"
+    "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"
     # "mistralai/Ministral-3-14B-Instruct-2512"
