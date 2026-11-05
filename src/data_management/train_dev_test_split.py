@@ -36,9 +36,9 @@ OUTPUT_DIR = Path("data/splits")
 
 RANDOM_STATE = 42
 
-P_TRAIN = 60
-P_DEV = 20
-P_TEST = 20
+P_TRAIN = 80
+P_DEV = 10
+P_TEST = 10
 
 assert P_TRAIN + P_DEV + P_TEST == 100
 
