@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 1822968
+# 2240378 (vLLM)
 # =============================================================================
 # TEKS FILTER RAG EXPERIMENTS — vLLM
 # =============================================================================
@@ -34,7 +34,7 @@ nohup env CUDA_VISIBLE_DEVICES=0 VLLM_USE_FLASHINFER_SAMPLER=0 \
     > ./logs/gemma4_12b_server.log 2>&1 &
 
 # GEMMA 4 31B
-nohup env CUDA_VISIBLE_DEVICES=2 VLLM_USE_FLASHINFER_SAMPLER=0 \
+nohup env CUDA_VISIBLE_DEVICES=3 VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve google/gemma-4-31B-it \
         --host 127.0.0.1 --port 8002 --gpu-memory-utilization 0.90 \
         --max-model-len 65536 \
@@ -71,8 +71,8 @@ SERVER_NOTES
 BACKEND="vllm"
 
 MODELS=(
-    "google/gemma-4-12B-it"
-    # "google/gemma-4-31B-it"
+    # "google/gemma-4-12B-it"
+    "google/gemma-4-31B-it"
     # "meta-llama/Llama-3.3-70B-Instruct"
     # "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
