@@ -41,10 +41,10 @@ nohup env CUDA_VISIBLE_DEVICES=3 VLLM_USE_FLASHINFER_SAMPLER=0 \
     > ./logs/gemma4_31b_server.log 2>&1 &
 
 # LLAMA 3.3 70B
-nohup env CUDA_VISIBLE_DEVICES=0,1 VLLM_USE_FLASHINFER_SAMPLER=0 \
+nohup env CUDA_VISIBLE_DEVICES=1,2 VLLM_USE_FLASHINFER_SAMPLER=0 \
     vllm serve meta-llama/Llama-3.3-70B-Instruct \
         --host 127.0.0.1 --port 8005 --tensor-parallel-size 2 \
-        --gpu-memory-utilization 0.90 --max-model-len 65536 \
+        --gpu-memory-utilization 0.9 --max-model-len 65536 \
     > ./logs/llama3_70b_server.log 2>&1 &
 
 # QWEN 3.5 4B / 9B (choose one server on port 8000)
@@ -72,8 +72,8 @@ BACKEND="vllm"
 
 MODELS=(
     # "google/gemma-4-12B-it"
-    "google/gemma-4-31B-it"
-    # "meta-llama/Llama-3.3-70B-Instruct"
+    # "google/gemma-4-31B-it"
+    "meta-llama/Llama-3.3-70B-Instruct"
     # "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"

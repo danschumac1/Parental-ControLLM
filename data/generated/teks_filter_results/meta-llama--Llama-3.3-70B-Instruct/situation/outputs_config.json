@@ -1,7 +1,9 @@
 {
-    "input_data_path": "./data/generated/sample.tsv",
+    "input_data_path": "./data/splits/test.tsv",
+    "query_row": "situation",
     "backend": "vllm",
     "model": "meta-llama/Llama-3.3-70B-Instruct",
+    "port": 8005,
     "n_rows": -1,
     "save_every": 1,
     "temperature": 0.0,

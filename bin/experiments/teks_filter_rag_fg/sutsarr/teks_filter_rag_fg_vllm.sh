@@ -91,8 +91,8 @@ SCRIPT="./src/experiments/teks_filter_rag_fg.py"
 
 MODELS=(
     # "google/gemma-4-12B-it"
-    "google/gemma-4-31B-it"
-    # "meta-llama/Llama-3.3-70B-Instruct"
+    # "google/gemma-4-31B-it"
+    "meta-llama/Llama-3.3-70B-Instruct"
     # "Qwen/Qwen3.5-4B"
     # "Qwen/Qwen3.5-9B"
     # "mistralai/Ministral-3-8B-Instruct-2512"
