@@ -1,39 +1,43 @@
 """
 2026-11-05
-Fine-grained HECAT/TEKS filter with cosine-similarity retrieval.
-Permissions: 'x' blocked, 'o' allowed, using fg_expectation_idx.json.
-Age-inappropriate expectations are blocked regardless of parental permission.
+Fine-grained TEKS/HECAT retrieval + generation.
+'x' blocks, 'o' allows, indexed by data/generated/fg_expectation_idx.json.
+Age-inappropriate expectations are always blocked.
 
 Run:
   python ./src/experiments/teks_filter_rag_fg.py \
-    --input_data_path ./data/splits/fg_split/test.tsv \
-    --query_row situation --retrieval_corpus split --backend vllm \
-    --model google/gemma-4-12B-it --port 8002 --n_r_contexts 20
+      --input_data_path ./data/splits/fg_split/test.tsv \
+      --query_row situation --retrieval_corpus split --backend vllm \
+      --model google/gemma-4-12B-it --port 8002 --n_r_contexts 20
+
+Use --reset_run once if this experiment already has outputs from an older dataset.
+It archives old outputs before starting over. Otherwise, completed runs resume safely.
 """
-from pathlib import Path
-import sys
-sys.path.append('./src')
 
 import argparse
+import hashlib
 import json
+import shutil
+import sys
+from datetime import datetime
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
 from sentence_transformers import SentenceTransformer
+from tqdm import tqdm
 
-from utils.file_io import (
-    load_tsv_file, load_single_yaml_prompt, append_jsonl_file,
-    save_args_as_config_json,
-)
+sys.path.insert(0, './src')
+from utils.file_io import (load_tsv_file, load_single_yaml_prompt,
+                           append_jsonl_file, save_args_as_config_json)
 from utils.prompting import generate
-from utils.evaluation import (
-    evaluate_generation, evaluate_dataset, print_evaluation, save_evaluation,
-)
+from utils.evaluation import (evaluate_generation, evaluate_dataset,
+                              print_evaluation, save_evaluation)
 
-TEKS_FILE = 'data/cleaned/hecat_standards.tsv'
-IDX_PATH = 'data/generated/fg_expectation_idx.json'
-PROMPT_PATH = 'data/prompts/response_generation/teks_guardrail.yaml'
-OUTPUT_DIR = 'data/generated/teks_filter_rag_fg_results'
+TEKS_FILE = Path('data/cleaned/hecat_standards.tsv')
+IDX_PATH = Path('data/generated/fg_expectation_idx.json')
+PROMPT_PATH = Path('data/prompts/response_generation/teks_guardrail.yaml')
+OUTPUT_DIR = Path('data/generated/teks_filter_rag_fg_results')
 
 
 def parse_args():
@@ -46,11 +50,15 @@ def parse_args():
     p.add_argument('--port', type=int, default=8002)
     p.add_argument('--n_rows', type=int, default=-1)
     p.add_argument('--save_every', type=int, default=25)
+    p.add_argument('--eval_every', type=int, default=100,
+                   help='Evaluate after this many NEW rows (also at finish).')
     p.add_argument('--temperature', type=float, default=0.0)
     p.add_argument('--max_tokens', type=int, default=1024)
     p.add_argument('--top_p', type=float, default=1.0)
     p.add_argument('--n_r_contexts', type=int, default=20)
     p.add_argument('--embedding_model', default='sentence-transformers/all-MiniLM-L6-v2')
+    p.add_argument('--reset_run', action='store_true',
+                   help='Archive earlier outputs/config and regenerate this run.')
     return p.parse_args()
 
 
@@ -59,111 +67,138 @@ def normalize(value):
 
 
 def load_index():
-    with open(IDX_PATH, encoding='utf-8') as f:
+    with IDX_PATH.open(encoding='utf-8') as f:
         idx = json.load(f)
     if not isinstance(idx, dict) or sorted(idx.values()) != list(range(len(idx))):
         raise ValueError(f'Invalid expectation index: {IDX_PATH}')
-    if any(normalize(k) != k for k in idx):
-        raise ValueError('Index contains non-normalized expectations')
+    if any(normalize(text) != text for text in idx):
+        raise ValueError('Expectation index contains non-normalized text')
     return idx
 
 
-def load_expectation_catalog(data, retrieval_corpus, idx):
-    if retrieval_corpus == 'full':
-        teks_df = pd.DataFrame(load_tsv_file(TEKS_FILE))
-    else:
-        teks_df = pd.DataFrame(data)
+def load_catalog(all_rows, corpus, idx):
+    df = pd.DataFrame(load_tsv_file(TEKS_FILE)) if corpus == 'full' else pd.DataFrame(all_rows)
     required = {'expectation', 'grade_code'}
-    if not required.issubset(teks_df.columns):
-        raise ValueError(f'Catalog missing: {sorted(required - set(teks_df.columns))}')
-    teks_df['expectation'] = teks_df['expectation'].map(normalize)
-    teks_df = teks_df[teks_df['expectation'].ne('')].copy()
-    teks_df['grade_code'] = pd.to_numeric(teks_df['grade_code'], errors='raise')
-    teks_df = teks_df.drop_duplicates(subset=['expectation']).reset_index(drop=True)
-    if teks_df.empty:
+    if not required.issubset(df.columns):
+        raise ValueError(f'Retrieval catalog missing {required - set(df.columns)}')
+    df['expectation'] = df['expectation'].map(normalize)
+    df = df[df['expectation'].ne('')].copy()
+    df['grade_code'] = pd.to_numeric(df['grade_code'], errors='raise').astype(int)
+    df = df.drop_duplicates('expectation').reset_index(drop=True)
+    if df.empty:
         raise ValueError('Empty retrieval catalog')
-    # Expectations not present in the saved index are blocked by default.
-    teks_df['fg_idx'] = teks_df['expectation'].map(idx)
-    return teks_df
+    df['fg_idx'] = df['expectation'].map(idx)
+    return df
 
 
 class ExpectationRetriever:
-    def __init__(self, teks_df, model_name):
-        self.teks_df = teks_df.reset_index(drop=True)
-        self.model = SentenceTransformer(model_name)
+    def __init__(self, catalog, embedding_model):
+        self.catalog = catalog
+        self.model = SentenceTransformer(embedding_model)
         self.embeddings = np.asarray(self.model.encode(
-            self.teks_df['expectation'].tolist(),
-            normalize_embeddings=True, show_progress_bar=True,
+            catalog['expectation'].tolist(), normalize_embeddings=True,
+            show_progress_bar=True,
         ))
 
     def retrieve_batch(self, queries, top_k):
-        query_embeddings = np.asarray(self.model.encode(
+        embeddings = np.asarray(self.model.encode(
             queries, normalize_embeddings=True, show_progress_bar=False,
         ))
-        scores = query_embeddings @ self.embeddings.T
-        k = min(top_k, len(self.teks_df))
+        similarities = embeddings @ self.embeddings.T
         result = []
-        for query_scores in scores:
-            indices = np.argsort(-query_scores, kind='stable')[:k]
-            retrieved = self.teks_df.iloc[indices].copy()
-            retrieved['similarity'] = query_scores[indices]
+        for scores in similarities:
+            indices = np.argsort(-scores, kind='stable')[:min(top_k, len(self.catalog))]
+            retrieved = self.catalog.iloc[indices].copy()
+            retrieved['similarity'] = scores[indices]
             result.append(retrieved)
         return result
 
 
-def get_expectation_permissions(row, retrieved_df):
-    """Read each retrieved expectation's permission directly from config."""
-    config = row['config']
-    age = int(row['pretend_age'])
-    allowed, disallowed = [], []
-    for exp in retrieved_df.itertuples(index=False):
-        index = exp.fg_idx
-        is_allowed = (
-            pd.notna(index)
-            and config[int(index)] == 'o'
-            and int(exp.grade_code) <= age
-        )
-        (allowed if is_allowed else disallowed).append(exp.expectation)
-    return allowed, disallowed
+def permission(row, exp):
+    """Read policy character; unknown expectations and immature grades are blocked."""
+    index = exp.fg_idx
+    return (pd.notna(index)
+            and row['config'][int(index)] == 'o'
+            and int(exp.grade_code) <= int(row['pretend_age']))
 
 
-def build_prompt(row, retrieved_df, prompt_template, query_row):
-    allowed, disallowed = get_expectation_permissions(row, retrieved_df)
+def build_prompt(row, retrieved, template, query_row):
+    allowed, blocked = [], []
+    for exp in retrieved.itertuples(index=False):
+        (allowed if permission(row, exp) else blocked).append(exp.expectation)
     return [
-        {'role': 'system', 'content': prompt_template['system_prompt'].format(
+        {'role': 'system', 'content': template['system_prompt'].format(
             allowed_teks='\n'.join(f'- {x}' for x in allowed) or 'None',
-            disallowed_teks='\n'.join(f'- {x}' for x in disallowed) or 'None',
-        )},
-        {'role': 'user', 'content': prompt_template['user_prompt'].format(
-            question=row[query_row],
-        )},
+            disallowed_teks='\n'.join(f'- {x}' for x in blocked) or 'None')},
+        {'role': 'user', 'content': template['user_prompt'].format(question=row[query_row])},
     ]
 
 
-def get_retrieval_metadata(row, retrieved_df):
-    allowed, _ = get_expectation_permissions(row, retrieved_df)
-    allowed_set = set(allowed)
+def retrieval_metadata(row, retrieved):
     target_idx = int(row['expectation_idx'])
-    retrieval = []
-    for exp in retrieved_df.itertuples(index=False):
-        exp_idx = None if pd.isna(exp.fg_idx) else int(exp.fg_idx)
-        retrieval.append({
+    result = []
+    for exp in retrieved.itertuples(index=False):
+        index = None if pd.isna(exp.fg_idx) else int(exp.fg_idx)
+        result.append({
             'code': str(getattr(exp, 'code', '')),
             'expectation': exp.expectation,
             'module_code': str(getattr(exp, 'module_code', '')),
             'grade_code': int(exp.grade_code),
             'similarity': float(exp.similarity),
-            'expectation_idx': exp_idx,
-            'is_target': exp_idx == target_idx,
-            'permission': 'allow' if exp.expectation in allowed_set else 'block',
+            'expectation_idx': index,
+            'is_target': index == target_idx,
+            'permission': 'allow' if permission(row, exp) else 'block',
         })
-    return retrieval, any(item['is_target'] for item in retrieval)
+    return result, any(r['is_target'] for r in result)
 
 
-def load_existing_outputs(path):
+def validate_input(rows, args, idx):
+    required = {'id', args.query_row, 'expectation', 'expectation_idx',
+                'config', 'grade_code', 'pretend_age', 'refusal_gt'}
+    ids = set()
+    for i, row in enumerate(rows, 1):
+        if required - row.keys():
+            raise ValueError(f'Missing columns in row {i}: {required - row.keys()}')
+        if not normalize(row[args.query_row]):
+            raise ValueError(f'Empty {args.query_row} in row {i}')
+        target = normalize(row['expectation'])
+        if target not in idx or int(row['expectation_idx']) != idx[target]:
+            raise ValueError(f'Incorrect expectation index in row {i}')
+        config = row['config']
+        if len(config) != len(idx) or set(config) - {'x', 'o'}:
+            raise ValueError(f'Invalid config in row {i}')
+        expected = config[idx[target]] == 'x' or int(row['pretend_age']) < int(row['grade_code'])
+        if str(row['refusal_gt']).lower() not in {'true', 'false'}:
+            raise ValueError(f'Invalid refusal_gt in row {i}')
+        if (str(row['refusal_gt']).lower() == 'true') != expected:
+            raise ValueError(f'Incorrect refusal_gt in row {i}')
+        if row['id'] in ids:
+            raise ValueError(f'Duplicate ID: {row["id"]}')
+        ids.add(row['id'])
+
+
+def run_fingerprint(args, rows, catalog, idx, template):
+    """Include inputs that would change retrieval, prompts, or generations."""
+    payload = {
+        'index': idx,
+        'catalog': catalog[['expectation', 'grade_code']].to_dict('records'),
+        'rows': [{k: row.get(k) for k in ('id', 'expectation', 'expectation_idx',
+                 'config', 'pretend_age', 'grade_code', 'refusal_gt', args.query_row)}
+                 for row in rows],
+        'prompt': template,
+        'generation': {k: getattr(args, k) for k in (
+            'query_row', 'retrieval_corpus', 'backend', 'model', 'embedding_model',
+            'n_r_contexts', 'temperature', 'max_tokens', 'top_p')},
+    }
+    encoded = json.dumps(payload, sort_keys=True, ensure_ascii=False,
+                         separators=(',', ':'), default=str).encode('utf-8')
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def load_existing(path):
     if not path.exists():
         return {}
-    outputs = {}
+    result = {}
     with path.open(encoding='utf-8') as f:
         for line_number, line in enumerate(f, 1):
             if not line.strip():
@@ -171,80 +206,81 @@ def load_existing_outputs(path):
             try:
                 row = json.loads(line)
             except json.JSONDecodeError as e:
-                raise ValueError(f'Invalid JSON: {path}:{line_number}') from e
-            if 'id' not in row:
-                raise ValueError(f'Missing ID: {path}:{line_number}')
-            outputs[row['id']] = row
-    return outputs
+                raise ValueError(f'Invalid JSON {path}:{line_number}') from e
+            if not row.get('id'):
+                raise ValueError(f'Missing ID {path}:{line_number}')
+            result[row['id']] = row
+    return result
 
 
-def validate_input(data, args, idx):
-    required = {'id', args.query_row, 'expectation', 'expectation_idx',
-                'config', 'grade_code', 'pretend_age', 'refusal_gt'}
-    ids = []
-    for i, row in enumerate(data, 1):
-        missing = required - row.keys()
-        if missing:
-            raise ValueError(f'Missing fields in row {i}: {missing}')
-        if not normalize(row[args.query_row]):
-            raise ValueError(f'Empty query in row {i}')
-        target = normalize(row['expectation'])
-        if target not in idx or int(row['expectation_idx']) != idx[target]:
-            raise ValueError(f'Incorrect target expectation index in row {i}')
-        config = row['config']
-        if len(config) != len(idx) or set(config) - {'x', 'o'}:
-            raise ValueError(f'Invalid config in row {i}')
-        age = int(row['pretend_age'])
-        grade = int(row['grade_code'])
-        expected_refusal = config[idx[target]] == 'x' or age < grade
-        if (str(row['refusal_gt']).lower() == 'true') != expected_refusal:
-            raise ValueError(f'Incorrect refusal_gt in row {i}')
-        ids.append(row['id'])
-    if len(ids) != len(set(ids)):
-        raise ValueError('Duplicate dataset IDs')
+def prepare_run(run_dir, fingerprint, reset_run):
+    """Refuse silent reuse across dataset/index/catalog changes."""
+    output_path = run_dir / 'outputs.jsonl'
+    manifest_path = run_dir / 'run_fingerprint.json'
+    if reset_run:
+        backup_dir = run_dir / ('backup_' + datetime.now().strftime('%Y%m%d_%H%M%S_%f'))
+        for path in run_dir.iterdir():
+            if path.is_file():
+                backup_dir.mkdir(exist_ok=True)
+                shutil.move(str(path), str(backup_dir / path.name))
+        if backup_dir.exists():
+            print(f'Archived previous run files: {backup_dir}')
+    if output_path.exists() and not manifest_path.exists():
+        raise ValueError('Existing outputs predate fingerprint tracking. '
+                         'Use --reset_run once after rebuilding the dataset.')
+    if manifest_path.exists():
+        with manifest_path.open(encoding='utf-8') as f:
+            saved = json.load(f)
+        if saved.get('sha256') != fingerprint:
+            raise ValueError('Dataset, index, retrieval corpus, prompt, or model settings changed. '
+                             'Use --reset_run to archive and regenerate this experiment.')
+    else:
+        with manifest_path.open('w', encoding='utf-8') as f:
+            json.dump({'sha256': fingerprint}, f, indent=2)
+    return output_path, run_dir / 'eval.json'
 
 
 def main():
     args = parse_args()
-    if args.save_every <= 0 or args.n_r_contexts <= 0:
-        raise ValueError('--save_every and --n_r_contexts must be positive')
+    if min(args.save_every, args.eval_every, args.n_r_contexts) <= 0:
+        raise ValueError('save_every, eval_every and n_r_contexts must be positive')
     idx = load_index()
-    data = load_tsv_file(args.input_data_path)
-    prompt_template = load_single_yaml_prompt(PROMPT_PATH)
-    # Use the whole split as the retrieval corpus, even with --n_rows.
-    teks_df = load_expectation_catalog(data, args.retrieval_corpus, idx)
-    if args.n_rows > 0:
-        data = data[:args.n_rows]
-    if not data:
+    all_rows = load_tsv_file(args.input_data_path)
+    template = load_single_yaml_prompt(str(PROMPT_PATH))
+    catalog = load_catalog(all_rows, args.retrieval_corpus, idx)
+    rows = all_rows[:args.n_rows] if args.n_rows > 0 else all_rows
+    if not rows:
         print('No rows found.')
         return
-    validate_input(data, args, idx)
+    validate_input(rows, args, idx)
 
     safe_model = args.model.replace('/', '--')
     safe_embedding = args.embedding_model.replace('/', '--')
-    run_dir = (Path(OUTPUT_DIR) / safe_model / args.query_row / args.retrieval_corpus
+    run_dir = (OUTPUT_DIR / safe_model / args.query_row / args.retrieval_corpus
                / f'top{args.n_r_contexts}_{safe_embedding}'
                / Path(args.input_data_path).stem)
     run_dir.mkdir(parents=True, exist_ok=True)
-    output_path, eval_path = run_dir / 'outputs.jsonl', run_dir / 'eval.json'
+    fingerprint = run_fingerprint(args, rows, catalog, idx, template)
+    output_path, eval_path = prepare_run(run_dir, fingerprint, args.reset_run)
     save_args_as_config_json(args, str(output_path))
-    existing = load_existing_outputs(output_path)
-    selected_ids = {r['id'] for r in data}
-    completed = {k: v for k, v in existing.items() if k in selected_ids}
-    remaining = [r for r in data if r['id'] not in completed]
-    print('=== FINE-GRAINED TEKS FILTER + RAG ===')
-    print(f'Model: {args.model} | Backend: {args.backend}')
-    print(f'Loaded: {len(data):,} | Already completed: {len(completed):,} | Remaining: {len(remaining):,}')
-    print(f'Catalog: {len(teks_df):,} | Global index: {len(idx):,} | Top-K: {args.n_r_contexts}')
-    print(f'Retrieval corpus: {args.retrieval_corpus} | Query: {args.query_row}')
 
-    retriever = ExpectationRetriever(teks_df, args.embedding_model) if remaining else None
+    existing = load_existing(output_path)
+    row_ids = {r['id'] for r in rows}
+    completed = {k: v for k, v in existing.items() if k in row_ids}
+    remaining = [r for r in rows if r['id'] not in completed]
+    print('=== FINE-GRAINED TEKS FILTER RAG ===')
+    print(f'Model: {args.model} | Backend: {args.backend} | Query: {args.query_row}')
+    print(f'Rows: {len(rows):,} | Completed: {len(completed):,} | Remaining: {len(remaining):,}')
+    print(f'Corpus: {args.retrieval_corpus} ({len(catalog):,}) | Index: {len(idx):,} | K={args.n_r_contexts}')
+
+    retriever = ExpectationRetriever(catalog, args.embedding_model) if remaining else None
+    since_eval = 0
     example_printed = False
-    with tqdm(total=len(data), initial=len(completed), desc='Generating', unit='row') as progress:
+    with tqdm(total=len(rows), initial=len(completed), desc='Generating', unit='row') as bar:
         for start in range(0, len(remaining), args.save_every):
             batch = remaining[start:start + args.save_every]
             retrieved = retriever.retrieve_batch([r[args.query_row] for r in batch], args.n_r_contexts)
-            messages = [build_prompt(r, t, prompt_template, args.query_row)
+            messages = [build_prompt(r, t, template, args.query_row)
                         for r, t in zip(batch, retrieved, strict=True)]
             if not example_printed:
                 tqdm.write("First query's top retrieved expectations:")
@@ -252,40 +288,41 @@ def main():
                     tqdm.write(f'{rank}. ({exp.similarity:.3f}) {exp.expectation}')
                 tqdm.write('Example message: ' + str(messages[0]))
                 example_printed = True
+
             generations = generate(
                 messages=messages, model=args.model, backend=args.backend,
                 vllm_base_url=f'http://127.0.0.1:{args.port}/v1',
-                temperature=args.temperature, max_tokens=args.max_tokens,
-                top_p=args.top_p,
+                temperature=args.temperature, max_tokens=args.max_tokens, top_p=args.top_p,
             )
             if len(generations) != len(batch):
                 raise ValueError('Generation count mismatch')
+
             batch_output = []
             for row, generation, retrieved_df in zip(batch, generations, retrieved, strict=True):
                 evaluation = evaluate_generation(row, generation)
-                retrieval, target_retrieved = get_retrieval_metadata(row, retrieved_df)
-                batch_output.append({**row, **evaluation,
-                                     'target_retrieved': target_retrieved,
+                retrieval, target_retrieved = retrieval_metadata(row, retrieved_df)
+                batch_output.append({**row, **evaluation, 'target_retrieved': target_retrieved,
                                      'retrieved_expectations': retrieval})
             append_jsonl_file(str(output_path), batch_output)
-            for row in batch_output:
-                completed[row['id']] = row
-            current = [completed[r['id']] for r in data if r['id'] in completed]
-            metrics = evaluate_dataset(current)
-            save_evaluation(metrics, str(eval_path))
-            progress.update(len(batch_output))
+            completed.update({r['id']: r for r in batch_output})
+            since_eval += len(batch_output)
+            bar.update(len(batch_output))
+            if since_eval >= args.eval_every:
+                current = [completed[r['id']] for r in rows if r['id'] in completed]
+                save_evaluation(evaluate_dataset(current), str(eval_path))
+                since_eval = 0
 
-    final_output = [completed[r['id']] for r in data if r['id'] in completed]
-    if final_output:
-        metrics = evaluate_dataset(final_output)
+    final = [completed[r['id']] for r in rows if r['id'] in completed]
+    if final:
+        metrics = evaluate_dataset(final)
         print_evaluation(metrics)
         save_evaluation(metrics, str(eval_path))
-        audited = [r for r in final_output if 'target_retrieved' in r]
+        audited = [r for r in final if 'target_retrieved' in r]
         if audited:
-            n_retrieved = sum(str(r['target_retrieved']).lower() == 'true' for r in audited)
-            print(f'Target recall@{args.n_r_contexts}: {n_retrieved:,}/{len(audited):,} '
-                  f'({n_retrieved / len(audited):.2%})')
-    print(f'Outputs: {output_path}\nEvaluation: {eval_path}\nCompleted: {len(final_output):,}/{len(data):,}')
+            retrieved_count = sum(r['target_retrieved'] is True for r in audited)
+            print(f'Target recall@{args.n_r_contexts}: {retrieved_count:,}/{len(audited):,} '
+                  f'({retrieved_count / len(audited):.2%})')
+    print(f'Outputs: {output_path}\nEvaluation: {eval_path}\nCompleted: {len(final):,}/{len(rows):,}')
 
 
 if __name__ == '__main__':
